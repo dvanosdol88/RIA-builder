@@ -1,0 +1,5 @@
+{
+  "name": "RIA Construction Zone",
+  "description": "A dashboard for building an RIA firm with categorized ideas, tasks, and an integrated Gemini AI assistant.",
+  "requestFramePermissions": []
+}
