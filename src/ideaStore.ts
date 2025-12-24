@@ -1,168 +1,173 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
-// --- Dynamic Structure Types ---
-export interface Domain {
-    id: string;      // "Experience"
-    label: string;   // "Client Experience"
-    emoji: string;   // "✨"
-    pages: string[]; // ["Onboarding", "Year 1"]
-}
+export type Category = 'A' | 'B' | 'C' | 'D';
 
-export type Category = string; // Now dynamic
+export type Stage = 'current_best' | 'workshopping' | 'ready_to_go' | 'archived';
+
+export const CATEGORY_STRUCTURE: Record<
+  Category,
+  { emoji: string; label: string; pages: string[] }
+> = {
+  A: {
+    emoji: '✨',
+    label: 'Client Experience',
+    pages: ['Onboarding', 'First Meeting', 'Year 1', 'Portal Design'],
+  },
+  B: {
+    emoji: '⚙️',
+    label: 'Operations & Tech',
+    pages: ['Wealthbox', 'RightCapital', 'Automation', 'Data Flows'],
+  },
+  C: {
+    emoji: '🚀',
+    label: 'Marketing & Growth',
+    pages: ['Landing Page', 'Postcards', 'Fee Calculator', 'Messaging'],
+  },
+  D: {
+    emoji: '🧠',
+    label: 'Logic & Compliance',
+    pages: ['Asset Allocation', 'Models', 'ADV Filings', 'Policies'],
+  },
+};
 
 export interface Idea {
-    id: string;
-    text: string;
-    category: string; 
-    subcategory: string; 
-    timestamp: number;
-    refined?: boolean;
-    type: 'idea' | 'question';
-    notes: { id: string; text: string; timestamp: number }[];
+  id: string;
+  text: string;
+  category: Category;
+  subcategory: string;
+  timestamp: number;
+  refined?: boolean;
+  stage: Stage;
+  pinned?: boolean;
+  type: 'idea' | 'question';
+  goal: string;
+  images: string[];
+  notes: { id: string; text: string; timestamp: number }[];
 }
+
+type IdeaInput = Omit<Idea, 'id' | 'timestamp' | 'pinned' | 'stage'> &
+  Partial<Pick<Idea, 'id' | 'timestamp' | 'pinned' | 'stage'>>;
 
 interface IdeaStore {
-    structure: Domain[];
-    ideas: Idea[];
-
-    // Idea Actions
-    addIdea: (idea: Idea) => void;
-    updateIdea: (id: string, updates: Partial<Idea>) => void;
-    removeIdea: (id: string) => void;
-    addNote: (ideaId: string, noteText: string) => void;
-
-    // Structure Actions
-    addDomain: (label: string, emoji: string) => void;
-    updateDomain: (id: string, updates: Partial<Domain>) => void;
-    deleteDomain: (id: string) => void;
-    
-    addPage: (domainId: string, pageName: string) => void;
-    updatePage: (domainId: string, oldPageName: string, newPageName: string) => void;
-    deletePage: (domainId: string, pageName: string) => void;
+  ideas: Idea[];
+  addIdea: (idea: IdeaInput) => void;
+  updateIdea: (id: string, updates: Partial<Idea>) => void;
+  removeIdea: (id: string) => void;
+  setIdeaStage: (id: string, stage: Stage) => void;
+  toggleIdeaPinned: (id: string) => void;
 }
 
-const INITIAL_STRUCTURE: Domain[] = [
-  {
-    id: 'Experience',
-    label: 'Client Experience',
-    emoji: '✨',
-    pages: ['Onboarding', 'First Meeting', 'Year 1', 'Portal Design']
-  },
-  {
-    id: 'Ops',
-    label: 'Ops & Tech',
-    emoji: '⚙️',
-    pages: ['Tech Stack', 'Compliance', 'Workflow Automation']
-  },
-  {
-    id: 'Marketing',
-    label: 'Growth Engine',
-    emoji: '🚀',
-    pages: ['Landing Page', 'Postcards', 'Fee Calculator', 'Messaging']
-  },
-  {
-    id: 'Logic',
-    label: 'Advisory Logic',
-    emoji: '🧠',
-    pages: ['Asset Allocation', 'Models', 'Research', 'Regulatory']
-  }
-];
-
 const SEED_DATA: Idea[] = [
-    {
-        id: '1',
-        text: "Draft the 'Zero-Entry' upload flow for brokerage PDFs",
-        category: 'Experience',
-        subcategory: 'Onboarding',
-        timestamp: Date.now(),
-        type: 'idea',
-        refined: false,
-        notes: []
-    }
+  {
+    id: '1',
+    text: "Draft the 'Zero-Entry' upload flow for brokerage PDFs",
+    category: 'A',
+    subcategory: 'Onboarding',
+    timestamp: Date.now(),
+    type: 'idea',
+    refined: false,
+    stage: 'workshopping',
+    pinned: false,
+    goal: '',
+    images: [],
+    notes: [],
+  },
+  {
+    id: '2',
+    text: "Script the 'Dream Retirement' opening question",
+    category: 'A',
+    subcategory: 'Onboarding',
+    timestamp: Date.now(),
+    type: 'idea',
+    refined: false,
+    stage: 'workshopping',
+    pinned: false,
+    goal: '',
+    images: [],
+    notes: [],
+  },
 ];
 
-export const useIdeaStore = create<IdeaStore>((set) => ({
-    structure: INITIAL_STRUCTURE,
-    ideas: SEED_DATA,
+const mapLegacyCategory = (category: unknown): Category => {
+  switch (category) {
+    case 'Experience':
+      return 'A';
+    case 'Ops':
+      return 'B';
+    case 'Marketing':
+      return 'C';
+    case 'Logic':
+      return 'D';
+    default:
+      return 'A';
+  }
+};
 
-    // Idea Reducers
-    addIdea: (idea) => set((state) => ({ ideas: [...state.ideas, idea] })),
-    updateIdea: (id, updates) =>
+export const useIdeaStore = create<IdeaStore>()(
+  persist(
+    (set) => ({
+      ideas: SEED_DATA,
+      addIdea: (ideaInput) =>
+        set((state) => {
+          const idea: Idea = {
+            id: ideaInput.id ?? crypto.randomUUID(),
+            text: ideaInput.text,
+            category: ideaInput.category,
+            subcategory: ideaInput.subcategory,
+            timestamp: ideaInput.timestamp ?? Date.now(),
+            refined: ideaInput.refined,
+            stage: ideaInput.stage ?? 'workshopping',
+            pinned: ideaInput.pinned ?? false,
+            type: ideaInput.type,
+            goal: ideaInput.goal ?? '',
+            images: ideaInput.images ?? [],
+            notes: ideaInput.notes ?? [],
+          };
+
+          return { ideas: [...state.ideas, idea] };
+        }),
+      updateIdea: (id, updates) =>
         set((state) => ({
-            ideas: state.ideas.map((idea) =>
-                idea.id === id ? { ...idea, ...updates } : idea
-            ),
+          ideas: state.ideas.map((idea) =>
+            idea.id === id ? { ...idea, ...updates } : idea
+          ),
         })),
-    removeIdea: (id) =>
+      removeIdea: (id) =>
         set((state) => ({ ideas: state.ideas.filter((i) => i.id !== id) })),
-    addNote: (ideaId, noteText) =>
+      setIdeaStage: (id, stage) =>
         set((state) => ({
-            ideas: state.ideas.map((idea) =>
-                idea.id === ideaId
-                    ? {
-                        ...idea,
-                        notes: [
-                            ...idea.notes,
-                            { id: crypto.randomUUID(), text: noteText, timestamp: Date.now() },
-                        ],
-                    }
-                    : idea
-            ),
+          ideas: state.ideas.map((idea) =>
+            idea.id === id ? { ...idea, stage } : idea
+          ),
         })),
-
-    // Structure Reducers
-    addDomain: (label, emoji) => set((state) => ({
-        structure: [...state.structure, { 
-            id: crypto.randomUUID(), 
-            label, 
-            emoji, 
-            pages: ['New Page'] 
-        }]
-    })),
-    
-    updateDomain: (id, updates) => set((state) => ({
-        structure: state.structure.map(d => d.id === id ? { ...d, ...updates } : d)
-    })),
-
-    deleteDomain: (id) => set((state) => ({
-        structure: state.structure.filter(d => d.id !== id),
-        ideas: state.ideas.filter(i => i.category !== id) // Cascade delete ideas
-    })),
-
-    addPage: (domainId, pageName) => set((state) => ({
-        structure: state.structure.map(d => 
-            d.id === domainId 
-            ? { ...d, pages: [...d.pages, pageName] }
-            : d
-        )
-    })),
-
-    updatePage: (domainId, oldPageName, newPageName) => set((state) => {
-        // 1. Update Structure
-        const newStructure = state.structure.map(d => {
-            if (d.id !== domainId) return d;
-            return {
-                ...d,
-                pages: d.pages.map(p => p === oldPageName ? newPageName : p)
-            };
-        });
-
-        // 2. Update Ideas (Move them to the new page name)
-        const newIdeas = state.ideas.map(i => {
-            if (i.category === domainId && i.subcategory === oldPageName) {
-                return { ...i, subcategory: newPageName };
-            }
-            return i;
-        });
-
-        return { structure: newStructure, ideas: newIdeas };
+      toggleIdeaPinned: (id) =>
+        set((state) => ({
+          ideas: state.ideas.map((idea) =>
+            idea.id === id ? { ...idea, pinned: !idea.pinned } : idea
+          ),
+        })),
     }),
+    {
+      name: 'idea-store',
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') return persistedState as IdeaStore;
+        const state = persistedState as IdeaStore;
 
-    deletePage: (domainId, pageName) => set((state) => ({
-        structure: state.structure.map(d => 
-            d.id === domainId 
-            ? { ...d, pages: d.pages.filter(p => p !== pageName) }
-            : d
-        ),
-    }))
-}));
+        return {
+          ...state,
+          ideas: (state.ideas ?? []).map((idea) => ({
+            ...idea,
+            category: mapLegacyCategory(idea.category),
+            stage: idea.stage ?? 'workshopping',
+            pinned: idea.pinned ?? false,
+            goal: idea.goal ?? '',
+            images: idea.images ?? [],
+          })),
+        };
+      },
+    }
+  )
+);
