@@ -39,6 +39,7 @@ export default function ConstructionZone() {
   const {
     ideas,
     customPages,
+    pageOrders,
     isLoading,
     error,
     loadIdeas,
@@ -100,7 +101,7 @@ export default function ConstructionZone() {
   };
 
   // Get pages for the current category (default + custom)
-  const currentPages = useMemo(() => getPagesForCategory(activeTab), [activeTab, customPages, getPagesForCategory]);
+  const currentPages = useMemo(() => getPagesForCategory(activeTab), [activeTab, customPages, pageOrders, getPagesForCategory]);
 
   // Custom page handlers
   const handleStartAddPage = () => {
@@ -232,7 +233,7 @@ export default function ConstructionZone() {
       return;
     }
 
-    const pages = [...currentPages];
+    const pages = [...getPagesForCategory(activeTab)];
     const draggedIndex = pages.indexOf(draggedPage);
     const targetIndex = pages.indexOf(targetPage);
 

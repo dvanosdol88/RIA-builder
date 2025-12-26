@@ -469,6 +469,11 @@ export const useIdeaStore = create<IdeaStore>()((set, get) => ({
 
     try {
       await firebaseService.addCustomPage(newPage);
+
+      // Add new page to pageOrders
+      const currentOrder = get().getPagesForCategory(category);
+      await get().reorderPages(category, currentOrder);
+
       return { success: true };
     } catch (error) {
       console.error('Failed to add custom page:', error);
@@ -531,6 +536,14 @@ export const useIdeaStore = create<IdeaStore>()((set, get) => ({
 
       // Delete the page from Firebase
       await firebaseService.deleteCustomPage(pageId);
+
+      // Update pageOrders to remove the deleted page
+      const { pageOrders } = get();
+      const currentOrder = pageOrders[pageToDelete.category];
+      if (currentOrder) {
+        const newOrder = currentOrder.filter((p) => p !== pageToDelete.pageName);
+        await get().reorderPages(pageToDelete.category, newOrder);
+      }
     } catch (error) {
       console.error('Failed to delete custom page:', error);
       // Rollback - restore the page
@@ -574,6 +587,15 @@ export const useIdeaStore = create<IdeaStore>()((set, get) => ({
       await firebaseService.updateCustomPage(pageId, { pageName: trimmedName });
       // Update all ideas that reference this page
       await firebaseService.renamePageInIdeas(pageToRename.category, oldName, trimmedName);
+
+      // Update pageOrders to reflect the renamed page
+      const { pageOrders } = get();
+      const currentOrder = pageOrders[pageToRename.category];
+      if (currentOrder) {
+        const newOrder = currentOrder.map((p) => (p === oldName ? trimmedName : p));
+        await get().reorderPages(pageToRename.category, newOrder);
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Failed to rename custom page:', error);
