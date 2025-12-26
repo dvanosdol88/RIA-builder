@@ -564,13 +564,18 @@ export default function ConstructionZone() {
 
                     <button
                       onClick={() => setActivePage(page)}
-                      className={`flex-1 text-left px-2 py-2.5 text-sm font-medium transition-all ${
+                      className={`flex-1 text-left px-2 py-2.5 text-sm font-medium transition-all flex items-center justify-between ${
                         activePage === page
                           ? 'text-blue-700'
                           : 'text-gray-600'
                       }`}
                     >
-                      {page}
+                      <span className="truncate">{page}</span>
+                      <span className={`text-[10px] ml-2 px-1.5 py-0.5 rounded-full ${
+                        activePage === page ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'
+                      }`}>
+                        {ideas.filter(i => i.category === activeTab && i.subcategory === page && i.stage !== 'archived').length}
+                      </span>
                     </button>
 
                     {/* Edit/Delete buttons for custom pages */}
