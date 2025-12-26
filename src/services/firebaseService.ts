@@ -201,3 +201,45 @@ export async function savePageOrder(category: Category, orderedPages: string[]):
   await setDoc(docRef, { orderedPages });
 }
 
+// ============================================
+// PRE-LAUNCH CHECKLIST OPERATIONS
+// ============================================
+
+const CHECKLIST_COLLECTION = 'checklistStates';
+
+export type ChecklistStatus = 'not_started' | 'in_progress' | 'complete';
+
+export interface ChecklistItemState {
+  itemId: string;
+  status: ChecklistStatus;
+  updatedAt: number;
+}
+
+/**
+ * Get all checklist item states from Firestore
+ */
+export async function getChecklistStates(): Promise<Record<string, ChecklistStatus>> {
+  const statesCollection = collection(db, CHECKLIST_COLLECTION);
+  const snapshot = await getDocs(statesCollection);
+
+  const states: Record<string, ChecklistStatus> = {};
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data() as ChecklistItemState;
+    states[doc.id] = data.status;
+  });
+
+  return states;
+}
+
+/**
+ * Save a single checklist item state to Firestore
+ */
+export async function saveChecklistItemState(itemId: string, status: ChecklistStatus): Promise<void> {
+  const docRef = doc(db, CHECKLIST_COLLECTION, itemId);
+  await setDoc(docRef, {
+    itemId,
+    status,
+    updatedAt: Date.now(),
+  });
+}
+

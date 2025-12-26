@@ -6,18 +6,26 @@ import { useConsultantStore } from '../consultantStore';
 
 // Map human-readable category names to our Category codes
 const CATEGORY_MAP: Record<string, Category> = {
-    'client experience': 'A',
-    'operations': 'B',
-    'operations & tech': 'B',
-    'marketing': 'C',
-    'marketing & growth': 'C',
-    'logic': 'D',
-    'logic & compliance': 'D',
+    'prospect experience': 'A',
+    'prospect': 'A',
+    'marketing': 'A',
+    'marketing and onboarding': 'A',
+    'client experience': 'B',
+    'client': 'B',
+    'advisor experience': 'F',
+    'advisor': 'F',
+    'tech stack': 'C',
+    'tech': 'C',
+    'vendors': 'C',
     'compliance': 'D',
+    'roadmap': 'E',
+    'growth': 'E',
     'a': 'A',
     'b': 'B',
+    'f': 'F',
     'c': 'C',
     'd': 'D',
+    'e': 'E',
 };
 
 // --- GEMINI FUNCTION CALLING TOOL DEFINITION ---
@@ -33,11 +41,11 @@ const createCardTool = {
             },
             category: {
                 type: Type.STRING,
-                description: "The pillar/category. Must be one of: 'Client Experience', 'Operations', 'Marketing', 'Logic'"
+                description: "The pillar/category. Must be one of: 'Prospect Experience', 'Client Experience', 'Advisor Experience', 'Tech Stack', 'Compliance', 'Roadmap'"
             },
             subcategory: {
                 type: Type.STRING,
-                description: "The section within the category. For Client Experience: Onboarding, First Meeting, Year 1, Portal Design. For Operations: Wealthbox, RightCapital, Automation, Data Flows. For Marketing: Landing Page, Postcards, Fee Calculator, Messaging. For Logic: Asset Allocation, Models, ADV Filings, Policies."
+                description: "The section within the category. For Prospect Experience: Landing Page, Postcards, Fee Calculator, Messaging. For Client Experience: Onboarding, First Meeting, Year 1, Portal Design. For Advisor Experience: Client Management, Calendar Management, Advisor Digital Twin, Investment Process, Investment Research, Investment Technology, Client Meetings and Notes, Client Communications. For Tech Stack: Wealthbox, RightCapital, Automation, Data Flows. For Compliance: Asset Allocation, Models, ADV Filings, Policies. For Roadmap: Goals, Milestones, Future Features, Experiments."
             },
             stage: {
                 type: Type.STRING,
@@ -229,11 +237,11 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             // Map category name to code
                             const categoryCode = CATEGORY_MAP[cardArgs.category.toLowerCase()] || 'B';
 
-                            // Validate subcategory
-                            const validSubcategories = CATEGORY_STRUCTURE[categoryCode].pages;
-                            const subcategory = validSubcategories.includes(cardArgs.subcategory)
+                            // Validate subcategory (extract page names from PageDefinition objects)
+                            const validSubcategoryNames = CATEGORY_STRUCTURE[categoryCode].pages.map(p => p.name);
+                            const subcategory = validSubcategoryNames.includes(cardArgs.subcategory)
                                 ? cardArgs.subcategory
-                                : validSubcategories[0];
+                                : validSubcategoryNames[0];
 
                             // Map stage
                             const stageMap: Record<string, Stage> = {

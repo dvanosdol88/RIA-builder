@@ -10,10 +10,13 @@ interface IdeaHopperStore {
   error: string | null;
   searchQuery: string;
   selectedIdeaId: string | null;
+  statusFilters: Set<HopperIdea['status']>;
 
   // Actions
   setSearchQuery: (query: string) => void;
   setSelectedIdeaId: (id: string | null) => void;
+  toggleStatusFilter: (status: HopperIdea['status']) => void;
+  clearStatusFilters: () => void;
   loadIdeas: () => Promise<void>;
   addIdea: (idea: Omit<HopperIdea, 'id'>) => Promise<HopperIdea | null>;
   updateIdea: (id: string, updates: Partial<HopperIdea>) => Promise<void>;
@@ -23,6 +26,7 @@ interface IdeaHopperStore {
   getFilteredIdeas: () => HopperIdea[];
   getIdeasByStatus: (status: HopperIdea['status']) => HopperIdea[];
   getSelectedIdea: () => HopperIdea | null;
+  getAllTags: () => string[];
 }
 
 export const useIdeaHopperStore = create<IdeaHopperStore>()((set, get) => ({
@@ -31,9 +35,23 @@ export const useIdeaHopperStore = create<IdeaHopperStore>()((set, get) => ({
   error: null,
   searchQuery: '',
   selectedIdeaId: null,
+  statusFilters: new Set<HopperIdea['status']>(),
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setSelectedIdeaId: (selectedIdeaId) => set({ selectedIdeaId }),
+
+  toggleStatusFilter: (status) => {
+    const { statusFilters } = get();
+    const newFilters = new Set(statusFilters);
+    if (newFilters.has(status)) {
+      newFilters.delete(status);
+    } else {
+      newFilters.add(status);
+    }
+    set({ statusFilters: newFilters });
+  },
+
+  clearStatusFilters: () => set({ statusFilters: new Set() }),
 
   loadIdeas: async () => {
     set({ isLoading: true, error: null });
@@ -115,17 +133,24 @@ export const useIdeaHopperStore = create<IdeaHopperStore>()((set, get) => ({
   },
 
   getFilteredIdeas: () => {
-    const { ideas, searchQuery } = get();
+    const { ideas, searchQuery, statusFilters } = get();
     return ideas
-      .filter((idea) =>
-        searchQuery
-          ? idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            idea.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            idea.tags.some((tag) =>
-              tag.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-          : true
-      )
+      .filter((idea) => {
+        // Filter by status if any filters are active
+        if (statusFilters.size > 0 && !statusFilters.has(idea.status)) {
+          return false;
+        }
+        // Filter by search query
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          return (
+            idea.title.toLowerCase().includes(query) ||
+            idea.description.toLowerCase().includes(query) ||
+            idea.tags.some((tag) => tag.toLowerCase().includes(query))
+          );
+        }
+        return true;
+      })
       .sort((a, b) => b.createdAt - a.createdAt);
   },
 
@@ -152,5 +177,14 @@ export const useIdeaHopperStore = create<IdeaHopperStore>()((set, get) => ({
   getSelectedIdea: () => {
     const { ideas, selectedIdeaId } = get();
     return ideas.find((idea) => idea.id === selectedIdeaId) || null;
+  },
+
+  getAllTags: () => {
+    const { ideas } = get();
+    const tagSet = new Set<string>();
+    ideas.forEach((idea) => {
+      idea.tags.forEach((tag) => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
   },
 }));

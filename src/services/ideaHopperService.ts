@@ -14,7 +14,9 @@ export interface HopperIdea {
   id: string;
   title: string;
   description: string;
+  /** @deprecated Use referenceUrls instead */
   referenceUrl?: string;
+  referenceUrls: string[];
   createdAt: number;
   updatedAt: number;
   status: 'new' | 'exploring' | 'developing' | 'implemented' | 'parked';
@@ -25,15 +27,25 @@ export interface HopperIdea {
 
 /**
  * Get all hopper ideas from Firestore
+ * Handles migration from old referenceUrl to new referenceUrls format
  */
 export async function getHopperIdeas(): Promise<HopperIdea[]> {
   const ideasCollection = collection(db, COLLECTION_NAME);
   const snapshot = await getDocs(ideasCollection);
 
-  return snapshot.docs.map((doc) => ({
-    ...doc.data(),
-    id: doc.id,
-  })) as HopperIdea[];
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    // Migrate old referenceUrl to referenceUrls array
+    let referenceUrls = data.referenceUrls || [];
+    if (data.referenceUrl && !referenceUrls.includes(data.referenceUrl)) {
+      referenceUrls = [data.referenceUrl, ...referenceUrls];
+    }
+    return {
+      ...data,
+      id: doc.id,
+      referenceUrls,
+    };
+  }) as HopperIdea[];
 }
 
 /**
@@ -84,7 +96,7 @@ export async function seedInitialIdeas(): Promise<HopperIdea[]> {
   const seedIdea: Omit<HopperIdea, 'id'> = {
     title: 'How it works overview',
     description: 'Shows how the client and advisor will work together, and why this is such an effective solution.',
-    referenceUrl: 'https://youtu.be/k1UBwj1Fyog',
+    referenceUrls: ['https://youtu.be/k1UBwj1Fyog'],
     createdAt: Date.now(),
     updatedAt: Date.now(),
     status: 'new',

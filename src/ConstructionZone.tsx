@@ -8,7 +8,7 @@ import {
   PAGE_NAME_MAX_LENGTH,
   PAGE_DESCRIPTION_MAX_LENGTH,
 } from './ideaStore';
-import { Search, Plus, Sparkles, ChevronDown, ChevronUp, Loader2, AlertCircle, FolderOpen, Lightbulb, CheckSquare, User, X, Pencil, Trash2, GripVertical, List } from 'lucide-react';
+import { Search, Plus, Sparkles, ChevronDown, ChevronUp, Loader2, AlertCircle, FolderOpen, Lightbulb, CheckSquare, User, X, Pencil, Trash2, GripVertical, List, Rocket, Megaphone, Briefcase, Cpu, Scale, Map } from 'lucide-react';
 import GeminiSidebar from './components/GeminiSidebar';
 import CollapsibleSection from './components/CollapsibleSection';
 import CardDetailModal from './components/CardDetailModal';
@@ -16,16 +16,29 @@ import DocumentsView from './components/DocumentsView';
 import IdeaHopperView from './components/IdeaHopperView';
 import TodoView from './components/TodoView';
 import OutlineView from './components/OutlineView';
+import PreLaunchChecklistView from './components/PreLaunchChecklistView';
 
-type ActiveView = 'construction' | 'documents' | 'ideaHopper' | 'todo' | 'outline';
+type ActiveView = 'construction' | 'documents' | 'ideaHopper' | 'todo' | 'outline' | 'preLaunchChecklist';
 
-// Helper to render category icon (User icon for Client Experience, emoji for others)
+// Helper to render category icon using lucide-react icons keyed in CATEGORY_STRUCTURE.
 const CategoryIcon = ({ category, size = 16 }: { category: Category; size?: number }) => {
-  if (category === 'B') {
-    // Client Experience uses User icon
-    return <User size={size} className="inline" />;
+  const iconKey = CATEGORY_STRUCTURE[category].emoji;
+  switch (iconKey) {
+    case 'megaphone':
+      return <Megaphone size={size} className="inline" />;
+    case 'user':
+      return <User size={size} className="inline" />;
+    case 'briefcase':
+      return <Briefcase size={size} className="inline" />;
+    case 'cpu':
+      return <Cpu size={size} className="inline" />;
+    case 'scale':
+      return <Scale size={size} className="inline" />;
+    case 'map':
+      return <Map size={size} className="inline" />;
+    default:
+      return <span>{iconKey}</span>;
   }
-  return <span>{CATEGORY_STRUCTURE[category].emoji}</span>;
 };
 
 const STAGE_LABELS: Record<Stage, string> = {
@@ -440,7 +453,7 @@ export default function ConstructionZone() {
       <header className="bg-slate-500 text-white py-0 flex items-center justify-between shadow-md z-20">
         <div className="flex items-center overflow-x-auto no-scrollbar">
           <div className="font-bold text-lg py-4 w-52 pl-6 border-r border-slate-400 whitespace-nowrap">
-            🚧 RIA Builder
+            RIA Builder
           </div>
           <div className="flex gap-1">
             {/* Only Category Tabs in Top Nav */}
@@ -692,6 +705,17 @@ export default function ConstructionZone() {
               To Do
             </button>
             <button
+              onClick={() => setActiveView('preLaunchChecklist')}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                activeView === 'preLaunchChecklist'
+                  ? 'bg-white shadow-sm text-blue-700 border border-gray-200'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Rocket size={16} />
+              Pre-Launch
+            </button>
+            <button
               onClick={() => setActiveView('ideaHopper')}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
                 activeView === 'ideaHopper'
@@ -730,23 +754,44 @@ export default function ConstructionZone() {
 
         {/* Main Content Area */}
         {/* Show Documents View */}
-        {activeView === 'documents' && <DocumentsView />}
+        {activeView === 'documents' && (
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+            <DocumentsView />
+          </main>
+        )}
 
         {/* Show Idea Hopper View */}
-        {activeView === 'ideaHopper' && <IdeaHopperView />}
+        {activeView === 'ideaHopper' && (
+          <main className="flex-1 overflow-hidden metallic-gradient py-4 pl-8 pr-8">
+            <IdeaHopperView />
+          </main>
+        )}
 
         {/* Show To Do View */}
-        {activeView === 'todo' && <TodoView />}
+        {activeView === 'todo' && (
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+            <TodoView />
+          </main>
+        )}
+
+        {/* Show Pre-Launch Checklist View */}
+        {activeView === 'preLaunchChecklist' && (
+          <main className="flex-1 overflow-hidden metallic-gradient py-4 pr-8 pl-0">
+            <PreLaunchChecklistView />
+          </main>
+        )}
 
         {/* Show Outline View */}
         {activeView === 'outline' && (
-          <OutlineView
-            onNavigate={(category, page) => {
-              setActiveTab(category);
-              setActivePage(page);
-              setActiveView('construction');
-            }}
-          />
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+            <OutlineView
+              onNavigate={(category, page) => {
+                setActiveTab(category);
+                setActivePage(page);
+                setActiveView('construction');
+              }}
+            />
+          </main>
         )}
 
         {/* Show Construction Zone */}
@@ -760,7 +805,7 @@ export default function ConstructionZone() {
                   {CATEGORY_STRUCTURE[activeTab].label}
                   {CATEGORY_STRUCTURE[activeTab].subtitle && (
                     <span className="text-slate-400 font-normal">
-                      — {CATEGORY_STRUCTURE[activeTab].subtitle}
+                      - {CATEGORY_STRUCTURE[activeTab].subtitle}
                     </span>
                   )}
                 </h2>

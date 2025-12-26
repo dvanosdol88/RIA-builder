@@ -24,7 +24,7 @@ export const CATEGORY_STRUCTURE: Record<
   { emoji: string; label: string; subtitle?: string; pages: PageDefinition[] }
 > = {
   A: {
-    emoji: '📣',
+    emoji: 'megaphone',
     label: 'Prospect Experience',
     subtitle: 'Marketing and Onboarding',
     pages: [
@@ -35,7 +35,7 @@ export const CATEGORY_STRUCTURE: Record<
     ],
   },
   B: {
-    emoji: '✨',
+    emoji: 'user',
     label: 'Client Experience',
     subtitle: 'Operations',
     pages: [
@@ -46,7 +46,7 @@ export const CATEGORY_STRUCTURE: Record<
     ],
   },
   F: {
-    emoji: '👔',
+    emoji: 'briefcase',
     label: 'Advisor Experience',
     subtitle: 'Operations',
     pages: [
@@ -61,7 +61,7 @@ export const CATEGORY_STRUCTURE: Record<
     ],
   },
   C: {
-    emoji: '🛠️',
+    emoji: 'cpu',
     label: 'Tech Stack',
     subtitle: 'Vendors',
     pages: [
@@ -72,7 +72,7 @@ export const CATEGORY_STRUCTURE: Record<
     ],
   },
   D: {
-    emoji: '⚖️',
+    emoji: 'scale',
     label: 'Compliance',
     pages: [
       { name: 'Asset Allocation', description: 'Document asset allocation policies and guidelines.' },
@@ -82,7 +82,7 @@ export const CATEGORY_STRUCTURE: Record<
     ],
   },
   E: {
-    emoji: '🗺️',
+    emoji: 'map',
     label: 'Roadmap',
     subtitle: 'Growth',
     pages: [
@@ -153,7 +153,7 @@ const SEED_DATA: Idea[] = [
     id: '1',
     text: "Draft the 'Zero-Entry' upload flow for brokerage PDFs",
     category: 'A',
-    subcategory: 'Onboarding',
+    subcategory: 'Landing Page',
     timestamp: Date.now(),
     type: 'idea',
     refined: false,
@@ -168,7 +168,7 @@ const SEED_DATA: Idea[] = [
     id: '2',
     text: "Script the 'Dream Retirement' opening question",
     category: 'A',
-    subcategory: 'Onboarding',
+    subcategory: 'Messaging',
     timestamp: Date.now(),
     type: 'idea',
     refined: false,

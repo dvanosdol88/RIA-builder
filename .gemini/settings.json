@@ -1,0 +1,23 @@
+{
+  "general": {
+    "previewFeatures": true,
+    "sessionRetention": {
+      "enabled": true
+    }
+  },
+  "ui": {
+    "showStatusInTitle": true,
+    "footer": {
+      "hideContextPercentage": false
+    },
+    "showMemoryUsage": true
+  },
+  "tools": {
+    "shell": {
+      "showColor": true
+    }
+  },
+  "security": {
+    "enablePermanentToolApproval": true
+  }
+}

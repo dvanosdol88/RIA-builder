@@ -55,7 +55,7 @@ export default function DocumentsView() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
         <p className="text-slate-500 font-medium">Loading documents...</p>
       </div>
@@ -64,7 +64,7 @@ export default function DocumentsView() {
 
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
           <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
           <p className="text-red-700 font-medium mb-2">Connection Error</p>
@@ -83,8 +83,8 @@ export default function DocumentsView() {
   const noResults = searchQuery && canonicalDocs.length === 0 && otherDocs.length === 0;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 py-6 px-8">
-      <div className="max-w-6xl mx-auto">
+    <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+      <div className="max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -197,13 +197,13 @@ export default function DocumentsView() {
             </div>
           )}
         </section>
-      </div>
 
-      {/* Preview Modal */}
-      {previewDoc && (
-        <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
-      )}
-    </div>
+        {/* Preview Modal */}
+        {previewDoc && (
+          <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+        )}
+      </div>
+    </main>
   );
 }
 

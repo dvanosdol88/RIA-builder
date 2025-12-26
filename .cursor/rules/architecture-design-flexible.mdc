@@ -1,0 +1,32 @@
+ALWAYS follow these architecture principles on ALL projects:
+
+1. **Configuration-Driven Design** - Define categories, labels, navigation, and options in config files, never hardcoded throughout the app
+
+2. **Single Source of Truth** - Any value used in multiple places must be defined once and referenced everywhere
+
+3. **Loosely Coupled Components** - Components must be generic and reusable, receiving data as props
+
+4. **Modular Architecture** - Features must be independent modules that can be added/removed without breaking others
+
+5. **Data-Driven UI** - UI renders dynamically from config/data, not hardcoded structures
+
+## Safety Rules (NON-NEGOTIABLE)
+- RULE #1: Do NOT break the app
+- RULE #2: See Rule #1
+- Before major refactors, explain the risk and wait for approval
+- Preserve existing functionality when adding features
+
+## Communication
+- Explain what you plan to do before doing it
+- After completing a task, summarize what was changed
+- Flag any concerns or potential issues proactively
+
+## Project Context
+Always read project-level instruction files if they exist:
+- CLAUDE.md
+- .cursorrules
+- AGENTS.md
+- gemini.md
+- README.md (AI Instructions section)---
+alwaysApply: true
+---
