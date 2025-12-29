@@ -39,7 +39,6 @@ import IdeaHopperView from './components/IdeaHopperView';
 import TodoView from './components/TodoView';
 import OutlineView from './components/OutlineView';
 import PreLaunchChecklistView from './components/PreLaunchChecklistView';
-import CapacityCalculator from './components/CapacityCalculator';
 
 type ActiveView =
   | 'construction'
@@ -881,11 +880,6 @@ export default function ConstructionZone() {
 
         {/* Show Construction Zone */}
         {activeView === 'construction' && (
-          activePage === 'Capacity Calculator' ? (
-            <main className="flex-1 overflow-hidden bg-slate-50">
-              <CapacityCalculator />
-            </main>
-          ) : (
           <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
             <div className="max-w-4xl">
               {/* Category Header Section */}
@@ -1046,7 +1040,6 @@ export default function ConstructionZone() {
               )}
             </div>
           </main>
-          )
         )}
 
         {geminiOpen && <GeminiSidebar onClose={() => setGeminiOpen(false)} />}
