@@ -84,6 +84,10 @@ export const CATEGORY_STRUCTURE: Record<
     subtitle: 'Operations',
     pages: [
       {
+        name: 'Capacity Calculator',
+        description: 'Model practice efficiency and client load.',
+      },
+      {
         name: 'Client Management',
         description:
           'Organize client relationship management workflows and processes.',
