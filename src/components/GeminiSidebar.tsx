@@ -279,8 +279,26 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setIsLoading(true);
 
     try {
+      // Try to get API key from multiple sources
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+      
+      if (!apiKey) {
+        const missingKeyMsg = 'Configuration Error: Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your .env file.';
+        console.error(missingKeyMsg);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'model',
+            text: missingKeyMsg,
+          },
+        ]);
+        setIsLoading(false);
+        return;
+      }
+
       const ai = new GoogleGenAI({
-        apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+        apiKey: apiKey,
       });
 
       // 1. Prepare Board Context (Dynamic from Store)
