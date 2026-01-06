@@ -12,6 +12,7 @@ import {
   Plus,
   Mic,
   MicOff,
+  Save,
 } from 'lucide-react';
 import {
   useIdeaStore,
@@ -115,6 +116,8 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   // --- EXTERNAL DATA STATE ---
   const [checklistStatus, setChecklistStatus] = useState<Record<string, string>>({});
   const [calculatorData, setCalculatorData] = useState<any>(null);
+  const [recentSummaries, setRecentSummaries] = useState<firebaseService.ConversationSummary[]>([]);
+
 
   // --- CHAT STATE (Local only - not persisted) ---
   const [messages, setMessages] = useState<Message[]>([
@@ -157,6 +160,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             // 2. Load Calculator
             const calcData = await calculatorAPI.get();
             if (calcData) setCalculatorData(calcData);
+
+            // 3. Load Recent Summaries
+            const summaries = await firebaseService.getRecentConversationSummaries();
+            setRecentSummaries(summaries);
         } catch (err) {
             console.error("Failed to load external agent context:", err);
         }
@@ -368,6 +375,14 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           `
         : 'No calculator data available.';
 
+      // Format Past Context
+      const pastContext = recentSummaries.length > 0 
+        ? recentSummaries.slice().reverse().map(s => { // Reverse to show chronological order
+            const date = new Date(s.timestamp).toLocaleDateString();
+            return `SESSION [${date}]: ${s.summary}\nDECISIONS: ${s.keyDecisions.join(', ')}`;
+        }).join('\n\n')
+        : 'No previous session context.';
+
       const systemInstruction = `
             Role: You are the Guardian of the RIA Project. You are an expert Consultant.
 
@@ -388,6 +403,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             --- EXECUTION PLAN STATUS (PRE-LAUNCH CHECKLIST) ---
             ${checklistContext}
             ----------------------------------------------------
+
+            --- PREVIOUS SESSION MEMORY (ROLLING SUMMARIES) ---
+            ${pastContext}
+            ---------------------------------------------------
 
             CONTEXT:
             - Date: ${today}
@@ -544,6 +563,78 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
+  const handleEndSession = async () => {
+    if (messages.length <= 1) return; // Don't summarize empty sessions (just welcome msg)
+    
+    setIsLoading(true);
+    try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+        if (!apiKey) throw new Error("API Key missing");
+
+        const ai = new GoogleGenAI({ apiKey });
+        
+        // Construct the prompt for summarization
+        const conversationText = messages
+            .filter(m => m.id !== 'welcome')
+            .map(m => `${m.role.toUpperCase()}: ${m.text}`)
+            .join('\n\n');
+
+        const summaryPrompt = `
+        Analyze the following conversation history.
+        1. Write a concise paragraph summary of what was discussed, focusing on user intent and business context.
+        2. Extract a list of any key decisions made or specific preferences stated by the user.
+
+        Return ONLY a JSON object with this shape:
+        {
+          "summary": "string",
+          "keyDecisions": ["string"]
+        }
+
+        Conversation History:
+        ${conversationText}
+        `;
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }],
+        });
+
+        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        // Simple cleanup if md blocks are present
+        const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const summaryData = JSON.parse(jsonStr);
+
+        // Save to Firebase
+        await firebaseService.saveConversationSummary({
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            summary: summaryData.summary || "No summary generated.",
+            keyDecisions: summaryData.keyDecisions || []
+        });
+
+        // Clear local state
+        setMessages([{
+            id: 'welcome',
+            role: 'model',
+            text: 'Session saved and memory updated. Starting fresh context.'
+        }]);
+
+        // Refresh summaries
+        const newSummaries = await firebaseService.getRecentConversationSummaries();
+        setRecentSummaries(newSummaries);
+
+    } catch (error) {
+        console.error("Failed to summarize session:", error);
+        setMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'model',
+            text: 'Failed to save session summary. Please try again.'
+        }]);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   // --- LOADING STATE ---
   const isDataLoading = isCanonLoading || isSettingsLoading;
 
@@ -581,12 +672,22 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </button>
         </div>
 
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-700 ml-2"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+            <button
+              onClick={handleEndSession}
+              disabled={isLoading || messages.length <= 1}
+              className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors disabled:opacity-30"
+              title="Save & Clear Session Memory"
+            >
+              <Save size={18} />
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-700 ml-1"
+            >
+              <X size={20} />
+            </button>
+        </div>
       </div>
 
       {/* Loading Overlay */}
