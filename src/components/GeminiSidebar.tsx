@@ -20,6 +20,9 @@ import {
   Stage,
 } from '../ideaStore';
 import { useConsultantStore } from '../consultantStore';
+import { calculatorAPI } from '../services/calculatorService';
+import * as firebaseService from '../services/firebaseService';
+import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
 
 // Map human-readable category names to our Category codes
 const CATEGORY_MAP: Record<string, Category> = {
@@ -108,6 +111,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [activeView, setActiveView] = useState<'chat' | 'settings' | 'canon'>(
     'chat'
   );
+  
+  // --- EXTERNAL DATA STATE ---
+  const [checklistStatus, setChecklistStatus] = useState<Record<string, string>>({});
+  const [calculatorData, setCalculatorData] = useState<any>(null);
 
   // --- CHAT STATE (Local only - not persisted) ---
   const [messages, setMessages] = useState<Message[]>([
@@ -139,6 +146,22 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   // Load data from Firebase on mount
   useEffect(() => {
     loadAll();
+    
+    // Load external data sources (Checklist & Calculator)
+    const loadExternalData = async () => {
+        try {
+            // 1. Load Checklist
+            const states = await firebaseService.getChecklistStates();
+            setChecklistStatus(states);
+            
+            // 2. Load Calculator
+            const calcData = await calculatorAPI.get();
+            if (calcData) setCalculatorData(calcData);
+        } catch (err) {
+            console.error("Failed to load external agent context:", err);
+        }
+    };
+    loadExternalData();
   }, [loadAll]);
 
   // Sync local form state when store values change (after load)
@@ -322,6 +345,29 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         .join('\n');
 
       // 3. Construct the System Instruction (using persisted settings)
+      
+      // Format Checklist Context
+      const checklistContext = CHECKLIST_PAGES.map(page => {
+          const items = page.items.map(item => {
+              const status = checklistStatus[item.id] || 'not_started';
+              return `  - [${status.toUpperCase().replace('_', ' ')}] ${item.text} (${item.timeframe})`;
+          }).join('\n');
+          return `${page.name}:\n${items}`;
+      }).join('\n\n');
+
+      // Format Calculator Context
+      const calculatorContext = calculatorData 
+        ? `
+          - Clients: ${calculatorData.numClients}
+          - Meetings/Client/Year: ${calculatorData.meetingsPerClient}
+          - Meeting Duration: ${calculatorData.minutesPerMeeting} mins
+          - Work Hours/Day: ${calculatorData.hoursPerDay}
+          - Work Days/Week: ${calculatorData.workDaysPerWeek}
+          - Vacation Weeks: ${52 - calculatorData.weeksPerYear}
+          - Notes: ${calculatorData.notes || 'None'}
+          `
+        : 'No calculator data available.';
+
       const systemInstruction = `
             Role: You are the Guardian of the RIA Project. You are an expert Consultant.
 
@@ -334,6 +380,14 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             --- THE CANON (IMMUTABLE TRUTH) ---
             ${canonContext}
             -----------------------------------
+            
+            --- PROJECT METRICS (CAPACITY CALCULATOR) ---
+            ${calculatorContext}
+            ---------------------------------------------
+
+            --- EXECUTION PLAN STATUS (PRE-LAUNCH CHECKLIST) ---
+            ${checklistContext}
+            ----------------------------------------------------
 
             CONTEXT:
             - Date: ${today}

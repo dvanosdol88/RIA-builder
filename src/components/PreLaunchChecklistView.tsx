@@ -112,7 +112,7 @@ interface ChecklistPage {
   items: ChecklistItem[];
 }
 
-const CHECKLIST_PAGES: ChecklistPage[] = [
+export const CHECKLIST_PAGES: ChecklistPage[] = [
   {
     id: 'registration-legal',
     name: 'Registration & Legal',
