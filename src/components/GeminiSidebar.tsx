@@ -86,6 +86,16 @@ const createCardTool = {
   },
 };
 
+const listSummariesTool = {
+  name: 'list_summaries',
+  description:
+    'Retrieves and displays a list of past conversation summaries from the memory. Use this when the user asks to see what they talked about previously, asks for a recap, or wants to see the history/summaries.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {}, // No parameters needed
+  },
+};
+
 interface Message {
   id: string;
   role: 'user' | 'model';
@@ -430,7 +440,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         model: 'gemini-2.0-flash',
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
-          tools: [{ functionDeclarations: [createCardTool] }],
+          tools: [{ functionDeclarations: [createCardTool, listSummariesTool] }],
         },
         contents: [
           ...historyContents,
@@ -440,6 +450,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       // 6. Process the response - check for function calls
       const createdCards: string[] = [];
+      let summaryListResponse = '';
       let hasTextResponse = false;
       let textResponse = '';
 
@@ -452,6 +463,21 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           // Check if this part is a function call
           if (part.functionCall) {
             const { name, args } = part.functionCall;
+
+            if (name === 'list_summaries') {
+                // Execute list_summaries
+                const summaries = recentSummaries; // Already loaded in state
+                if (summaries.length === 0) {
+                    summaryListResponse = "No previous conversation summaries found.";
+                } else {
+                    summaryListResponse = "### 📜 Past Conversation Summaries\n\n" + 
+                        summaries.slice().reverse().map(s => {
+                            const date = new Date(s.timestamp).toLocaleDateString();
+                            const time = new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            return `**[${date} ${time}]**\n${s.summary}\n*Decisions: ${s.keyDecisions.join(', ')}*`;
+                        }).join('\n\n---\n\n');
+                }
+            }
 
             if (name === 'create_card' && args) {
               // Execute the create_card function
@@ -515,7 +541,12 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // 7. Build the response message
       let finalMessage = '';
 
-      if (createdCards.length > 0) {
+      if (summaryListResponse) {
+          finalMessage = summaryListResponse;
+           if (hasTextResponse && textResponse.trim()) {
+              finalMessage += `\n\n${textResponse}`;
+           }
+      } else if (createdCards.length > 0) {
         finalMessage = `✅ Created ${createdCards.length} card${createdCards.length > 1 ? 's' : ''} on your board:\n\n${createdCards.join('\n')}`;
         if (hasTextResponse && textResponse.trim()) {
           finalMessage += `\n\n${textResponse}`;
