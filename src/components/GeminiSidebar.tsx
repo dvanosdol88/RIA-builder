@@ -275,12 +275,17 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // Replace with your actual deployed function URL or local emulator URL
       const functionUrl =
         import.meta.env.VITE_TRANSCRIBE_URL ||
-        'https://transcribeaudio-703924325336.europe-west1.run.app'; // Placeholder
+        'https://us-central1-mg-dashboard-ee066.cloudfunctions.net/transcribeAudio';
 
       const response = await fetch(functionUrl, {
         method: 'POST',
         body: formData,
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       if (data.text) {
@@ -288,8 +293,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         // Automatically send the transcribed text
         handleSend(data.text);
       }
-    } catch (error) {
-      console.error('Transcription error:', error);
+    } catch (error: any) {
+      console.error('Transcription error full details:', error);
+      // Fallback for user UI if possible
     } finally {
       setIsLoading(false);
     }
@@ -798,7 +804,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     isConversationModeActive
                       ? 'bg-red-100 text-red-600 hover:bg-red-200'
                       : 'text-gray-500 hover:text-indigo-600'
-                  }`}
+                  } border-2 border-red-500 bg-red-200`}
                   title={
                     isConversationModeActive
                       ? 'Stop Conversation'

@@ -11,7 +11,16 @@
       "mcp__playwright__browser_type",
       "Bash(taskkill:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_evaluate",
+      "Bash(mkdir:*)",
+      "Bash(cmd /c \"schtasks /create /tn \"\"Masterworks Scanner\"\" /tr \"\"D:\\\\anti-gravity-projects\\\\construction-zone-CODEX\\\\masterworks-scanner\\\\run_scanner.bat\"\" /sc daily /st 09:00 /rl highest /f\")",
+      "Bash(schtasks /create /tn \"Masterworks Scanner\" /tr \"D:\\\\anti-gravity-projects\\\\construction-zone-CODEX\\\\masterworks-scanner\\\\run_scanner.bat\" /sc daily /st 09:00 /f)",
+      "Bash(MSYS_NO_PATHCONV=1 schtasks //create //tn \"Masterworks Scanner\" //tr \"D:\\\\anti-gravity-projects\\\\construction-zone-CODEX\\\\masterworks-scanner\\\\run_scanner.bat\" //sc daily //st 09:00 //f)",
+      "Bash(MSYS_NO_PATHCONV=1 cmd.exe /c schtasks /create /tn \"Masterworks Scanner\" /tr \"D:\\\\anti-gravity-projects\\\\construction-zone-CODEX\\\\masterworks-scanner\\\\run_scanner.bat\" /sc daily /st 09:00 /f)",
+      "Bash(MSYS_NO_PATHCONV=1 cmd.exe:*)",
+      "Bash(tasklist:*)"
     ]
   },
   "outputStyle": "Explanatory"
