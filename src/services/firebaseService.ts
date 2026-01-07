@@ -6,6 +6,9 @@ import {
   updateDoc,
   deleteDoc,
   writeBatch,
+  query,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { Idea, Category } from '../ideaStore';
@@ -211,8 +214,39 @@ export async function savePageOrder(
 }
 
 // ============================================
-// PRE-LAUNCH CHECKLIST OPERATIONS
+// CONVERSATION SUMMARY OPERATIONS
 // ============================================
+
+const SUMMARIES_COLLECTION = 'conversationSummaries';
+
+export interface ConversationSummary {
+  id: string;
+  timestamp: number;
+  summary: string;
+  keyDecisions: string[];
+}
+
+/**
+ * Save a conversation summary to Firestore
+ */
+export async function saveConversationSummary(summary: ConversationSummary): Promise<void> {
+  const docRef = doc(db, SUMMARIES_COLLECTION, summary.id);
+  await setDoc(docRef, summary);
+}
+
+/**
+ * Get the most recent conversation summaries
+ */
+export async function getRecentConversationSummaries(limitCount: number = 10): Promise<ConversationSummary[]> {
+  const summariesCollection = collection(db, SUMMARIES_COLLECTION);
+  const q = query(summariesCollection, orderBy('timestamp', 'desc'), limit(limitCount));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(doc => ({
+    ...doc.data(),
+    id: doc.id
+  })) as ConversationSummary[];
+}
 
 const CHECKLIST_COLLECTION = 'checklistStates';
 

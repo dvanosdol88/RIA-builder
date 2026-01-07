@@ -30,8 +30,15 @@ export async function analyzeDocument({
   existingTags,
   existingDocNames,
 }: AnalyzeDocumentInput): Promise<DocumentSuggestions> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+  
+  if (!apiKey) {
+    console.error('Gemini API Key is missing');
+    throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your .env file.');
+  }
+
   const ai = new GoogleGenAI({
-    apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+    apiKey: apiKey,
   });
 
   const prompt = `
