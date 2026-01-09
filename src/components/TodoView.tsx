@@ -5,11 +5,11 @@ import {
   Loader2,
   AlertCircle,
   CheckSquare,
-  X,
   ListTodo,
 } from 'lucide-react';
 import { useTodoStore, TodoItem } from '../todoStore';
 import TodoCard from './TodoCard';
+import TodoSidebar from './TodoSidebar';
 
 export default function TodoView() {
   const {
@@ -29,15 +29,8 @@ export default function TodoView() {
     getCompletedTodos,
   } = useTodoStore();
 
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null);
-  const [newTodo, setNewTodo] = useState({
-    text: '',
-    description: '',
-    priority: 'medium' as TodoItem['priority'],
-    tags: '',
-    dueDate: '',
-  });
 
   useEffect(() => {
     loadTodos();
@@ -47,80 +40,42 @@ export default function TodoView() {
   const activeTodos = getActiveTodos();
   const completedTodos = getCompletedTodos();
 
-  const resetForm = () => {
-    setNewTodo({
-      text: '',
-      description: '',
-      priority: 'medium',
-      tags: '',
-      dueDate: '',
-    });
+  const handleSaveTodo = async (todoData: Partial<TodoItem>) => {
+    if (editingTodo) {
+      // Update existing
+      await updateTodo(editingTodo.id, todoData);
+    } else {
+      // Create new
+      await addTodo({
+        text: todoData.text!,
+        description: todoData.description,
+        completed: false,
+        priority: todoData.priority || 'medium',
+        dueDate: todoData.dueDate,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        tags: todoData.tags || [],
+      });
+    }
+    // Close sidebar is handled by sidebar calling onClose on success, 
+    // but here we just need to ensure state is clean if we were to manage it.
+    // Actually TodoSidebar calls onSave then onClose.
   };
 
-  const handleAddTodo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTodo.text.trim()) return;
-
-    await addTodo({
-      text: newTodo.text.trim(),
-      description: newTodo.description.trim() || undefined,
-      completed: false,
-      priority: newTodo.priority,
-      dueDate: newTodo.dueDate
-        ? new Date(newTodo.dueDate).getTime()
-        : undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      tags: newTodo.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    });
-
-    resetForm();
-    setShowAddModal(false);
-  };
-
-  const handleEditTodo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingTodo || !newTodo.text.trim()) return;
-
-    await updateTodo(editingTodo.id, {
-      text: newTodo.text.trim(),
-      description: newTodo.description.trim() || undefined,
-      priority: newTodo.priority,
-      dueDate: newTodo.dueDate
-        ? new Date(newTodo.dueDate).getTime()
-        : undefined,
-      tags: newTodo.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    });
-
-    resetForm();
+  const openAddSidebar = () => {
     setEditingTodo(null);
+    setIsSidebarOpen(true);
   };
 
-  const openEditModal = (id: string) => {
+  const openEditSidebar = (id: string) => {
     const todo = filteredTodos.find((t) => t.id === id);
     if (!todo) return;
-
     setEditingTodo(todo);
-    setNewTodo({
-      text: todo.text,
-      description: todo.description || '',
-      priority: todo.priority,
-      tags: todo.tags.join(', '),
-      dueDate: todo.dueDate
-        ? new Date(todo.dueDate).toISOString().split('T')[0]
-        : '',
-    });
+    setIsSidebarOpen(true);
   };
 
-  const closeModal = () => {
-    resetForm();
-    setShowAddModal(false);
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
     setEditingTodo(null);
   };
 
@@ -166,7 +121,7 @@ export default function TodoView() {
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openAddSidebar}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
         >
           <Plus size={18} />
@@ -212,7 +167,7 @@ export default function TodoView() {
             <ListTodo className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-500 mb-4">No tasks yet</p>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddSidebar}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Add your first task
@@ -241,134 +196,20 @@ export default function TodoView() {
               todo={todo}
               onToggleComplete={toggleComplete}
               onDelete={deleteTodo}
-              onEdit={openEditModal}
+              onEdit={openEditSidebar}
             />
           ))}
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      {(showAddModal || editingTodo) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editingTodo ? 'Edit Task' : 'Add New Task'}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={editingTodo ? handleEditTodo : handleAddTodo}
-              className="p-4 space-y-4"
-            >
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">
-                  Task *
-                </label>
-                <input
-                  type="text"
-                  value={newTodo.text}
-                  onChange={(e) =>
-                    setNewTodo({ ...newTodo, text: e.target.value })
-                  }
-                  placeholder="What needs to be done?"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">
-                  Description
-                </label>
-                <textarea
-                  value={newTodo.description}
-                  onChange={(e) =>
-                    setNewTodo({ ...newTodo, description: e.target.value })
-                  }
-                  placeholder="Add more details..."
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">
-                    Priority
-                  </label>
-                  <select
-                    value={newTodo.priority}
-                    onChange={(e) =>
-                      setNewTodo({
-                        ...newTodo,
-                        priority: e.target.value as TodoItem['priority'],
-                      })
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newTodo.dueDate}
-                    onChange={(e) =>
-                      setNewTodo({ ...newTodo, dueDate: e.target.value })
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">
-                  Tags (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={newTodo.tags}
-                  onChange={(e) =>
-                    setNewTodo({ ...newTodo, tags: e.target.value })
-                  }
-                  placeholder="urgent, client, follow-up"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newTodo.text.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
-                >
-                  {editingTodo ? 'Save Changes' : 'Add Task'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Sidebar for Add/Edit */}
+      <TodoSidebar
+        todo={editingTodo}
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        onSave={handleSaveTodo}
+        onDelete={deleteTodo}
+      />
     </div>
   );
 }

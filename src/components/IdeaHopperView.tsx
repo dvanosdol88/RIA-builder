@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useIdeaHopperStore, HopperIdea } from '../ideaHopperStore';
+import { useIdeaStore, CATEGORY_STRUCTURE, Category } from '../ideaStore';
 import IdeaHopperCard from './IdeaHopperCard';
 
 const STATUS_OPTIONS: Array<{
@@ -70,6 +71,8 @@ export default function IdeaHopperView() {
     getSelectedIdea,
     getAllTags,
   } = useIdeaHopperStore();
+
+  const { addIdea: addMainIdea } = useIdeaStore();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newIdea, setNewIdea] = useState({
@@ -163,6 +166,61 @@ export default function IdeaHopperView() {
 
   const handleStatusChange = (id: string, status: HopperIdea['status']) => {
     updateIdea(id, { status });
+  };
+
+  const handleMoveToCategory = async (id: string, category: Category) => {
+    const idea = filteredIdeas.find((i) => i.id === id);
+    if (!idea) return;
+
+    // Get default subcategory (first page)
+    const defaultPage = CATEGORY_STRUCTURE[category].pages[0]?.name;
+    if (!defaultPage) {
+      console.error('No default page found for category', category);
+      return;
+    }
+
+    // Construct notes from description, tags, and URLs
+    const notesParts = [];
+    if (idea.description) {
+      notesParts.push(`Description: ${idea.description}`);
+    }
+    if (idea.tags.length > 0) {
+      notesParts.push(`Tags: ${idea.tags.join(', ')}`);
+    }
+    if (idea.referenceUrls && idea.referenceUrls.length > 0) {
+      notesParts.push(`References:\n${idea.referenceUrls.join('\n')}`);
+    } else if (idea.referenceUrl) {
+      notesParts.push(`Reference: ${idea.referenceUrl}`);
+    }
+    if (idea.notes) {
+      notesParts.push(`Notes: ${idea.notes}`);
+    }
+
+    const noteContent = notesParts.join('\n\n');
+
+    // Add to main store
+    await addMainIdea({
+      text: idea.title,
+      category,
+      subcategory: defaultPage,
+      stage: 'workshopping',
+      type: 'idea',
+      goal: '',
+      images: [],
+      notes: noteContent
+        ? [
+            {
+              id: crypto.randomUUID(),
+              text: noteContent,
+              timestamp: Date.now(),
+            },
+          ]
+        : [],
+      linkedDocuments: [],
+    });
+
+    // Remove from Hopper
+    await deleteIdea(id);
   };
 
   if (isLoading) {
@@ -308,6 +366,7 @@ export default function IdeaHopperView() {
                   onDelete={deleteIdea}
                   onStatusChange={handleStatusChange}
                   onUpdate={updateIdea}
+                  onMoveToCategory={handleMoveToCategory}
                   allTags={allExistingTags}
                 />
               ))}

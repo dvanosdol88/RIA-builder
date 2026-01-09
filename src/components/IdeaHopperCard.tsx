@@ -12,8 +12,10 @@ import {
   Check,
   Edit2,
   Link,
+  ArrowRightCircle,
 } from 'lucide-react';
 import type { HopperIdea } from '../ideaHopperStore';
+import type { Category } from '../ideaStore';
 
 interface IdeaHopperCardProps {
   idea: HopperIdea;
@@ -21,6 +23,7 @@ interface IdeaHopperCardProps {
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: HopperIdea['status']) => void;
   onUpdate: (id: string, updates: Partial<HopperIdea>) => void;
+  onMoveToCategory: (id: string, category: Category) => void;
   allTags: string[];
 }
 
@@ -53,12 +56,21 @@ const PRIORITY_ICONS: Record<HopperIdea['priority'], React.ReactNode> = {
   low: <ArrowDown size={12} className="text-slate-400" />,
 };
 
+const MOVE_TARGETS: { code: Category; label: string }[] = [
+  { code: 'A', label: 'Prospect Experience' },
+  { code: 'B', label: 'Client Experience' },
+  { code: 'F', label: 'Advisor Experience' },
+  { code: 'C', label: 'Tech Stack' },
+  { code: 'D', label: 'Compliance' },
+];
+
 export default function IdeaHopperCard({
   idea,
   onSelect,
   onDelete,
   onStatusChange,
   onUpdate,
+  onMoveToCategory,
   allTags,
 }: IdeaHopperCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -69,11 +81,13 @@ export default function IdeaHopperCard({
   const [editDescription, setEditDescription] = useState(idea.description);
   const [newTagInput, setNewTagInput] = useState('');
   const [newUrlInput, setNewUrlInput] = useState('');
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const moveMenuRef = useRef<HTMLDivElement>(null);
 
   const statusConfig = STATUS_CONFIG[idea.status];
   const formattedDate = new Date(idea.createdAt).toLocaleDateString('en-US', {
@@ -81,6 +95,25 @@ export default function IdeaHopperCard({
     day: 'numeric',
     year: 'numeric',
   });
+
+  // Handle click outside for move menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        moveMenuRef.current &&
+        !moveMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowMoveMenu(false);
+      }
+    };
+
+    if (showMoveMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoveMenu]);
 
   // Focus inputs when editing starts
   useEffect(() => {
@@ -119,6 +152,16 @@ export default function IdeaHopperCard({
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     e.stopPropagation();
     onStatusChange(idea.id, e.target.value as HopperIdea['status']);
+  };
+
+  const handleMoveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMoveMenu(!showMoveMenu);
+  };
+
+  const handleMoveSelect = (category: Category) => {
+    onMoveToCategory(idea.id, category);
+    setShowMoveMenu(false);
   };
 
   const handleLinkClick = (e: React.MouseEvent) => {
@@ -581,18 +624,58 @@ export default function IdeaHopperCard({
           {formattedDate}
         </div>
 
-        <select
-          value={idea.status}
-          onChange={handleStatusChange}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-600 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <option value="new">New</option>
-          <option value="exploring">Exploring</option>
-          <option value="developing">Developing</option>
-          <option value="implemented">Implemented</option>
-          <option value="parked">Parked</option>
-        </select>
+        <div className="flex items-center gap-2">
+          {/* Status Select */}
+          <select
+            value={idea.status}
+            onChange={handleStatusChange}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-600 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <option value="new">New</option>
+            <option value="exploring">Exploring</option>
+            <option value="developing">Developing</option>
+            <option value="implemented">Implemented</option>
+            <option value="parked">Parked</option>
+          </select>
+
+          {/* Move Menu */}
+          <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={handleMoveClick}
+              className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded px-2 py-1 transition-colors"
+              title="Move to Board"
+            >
+              <ArrowRightCircle size={14} />
+              Move
+            </button>
+
+            {showMoveMenu && (
+              <div
+                ref={moveMenuRef}
+                className="absolute right-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden"
+              >
+                <div className="p-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500">
+                  Move to Workshopping...
+                </div>
+                <div className="py-1">
+                  {MOVE_TARGETS.map((target) => (
+                    <button
+                      key={target.code}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveSelect(target.code);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+                    >
+                      {target.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
