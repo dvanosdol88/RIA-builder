@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import GeminiSidebar from './components/GeminiSidebar';
 import CollapsibleSection from './components/CollapsibleSection';
-import CardDetailModal from './components/CardDetailModal';
+import CardDetailSidebar from './components/CardDetailSidebar';
 import DocumentsView from './components/DocumentsView';
 import IdeaHopperView from './components/IdeaHopperView';
 import TodoView from './components/TodoView';
@@ -1045,7 +1045,7 @@ export default function ConstructionZone() {
         {geminiOpen && <GeminiSidebar onClose={() => setGeminiOpen(false)} />}
 
         {selectedIdeaId && (
-          <CardDetailModal
+          <CardDetailSidebar
             ideaId={selectedIdeaId}
             onClose={() => setSelectedIdeaId(null)}
           />
