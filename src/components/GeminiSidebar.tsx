@@ -444,7 +444,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       // 5. Execute API Call with Function Calling Tools
       const result = await ai.models.generateContent({
-        model: 'gemini-1.5-flash-001',
+        model: 'gemini-2.0-flash',
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
           tools: [
@@ -636,7 +636,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         `;
 
         const result = await ai.models.generateContent({
-            model: 'gemini-1.5-flash-001',
+            model: 'gemini-2.0-flash',
             contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }],
         });
 
