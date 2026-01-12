@@ -30,7 +30,7 @@ export async function analyzeDocument({
   existingTags,
   existingDocNames,
 }: AnalyzeDocumentInput): Promise<DocumentSuggestions> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   
   if (!apiKey) {
     console.error('Gemini API Key is missing');

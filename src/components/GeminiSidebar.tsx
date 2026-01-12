@@ -326,7 +326,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     try {
       // Try to get API key from multiple sources
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       
       if (!apiKey) {
         const missingKeyMsg = 'Configuration Error: Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your .env file.';
@@ -609,7 +609,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     
     setIsLoading(true);
     try {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env.GEMINI_API_KEY as string);
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) throw new Error("API Key missing");
 
         const ai = new GoogleGenAI({ apiKey });
