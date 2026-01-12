@@ -401,6 +401,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       const systemInstruction = `
             Role: You are the Guardian of the RIA Project. You are an expert Consultant.
+            You have access to Google Search to find real-time information, verify facts, or research vendors/tools.
 
             CRITICAL INSTRUCTIONS:
             1. You possess a set of "Canonical Documents". These are the Single Source of Truth.
@@ -446,7 +447,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         model: 'gemini-1.5-flash-001',
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
-          tools: [{ functionDeclarations: [createCardTool, listSummariesTool] }],
+          tools: [
+            { functionDeclarations: [createCardTool, listSummariesTool] },
+            { googleSearchRetrieval: {} },
+          ],
         },
         contents: [
           ...historyContents,
