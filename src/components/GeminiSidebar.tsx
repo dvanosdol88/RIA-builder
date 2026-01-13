@@ -88,6 +88,35 @@ const createCardTool = {
   },
 };
 
+const updateCardTool = {
+  name: 'update_card',
+  description:
+    'Updates an existing card. Use this to change the title, goal, or stage of a card. You MUST use the exact ID provided in the context.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      id: {
+        type: Type.STRING,
+        description: 'The exact ID of the card to update.',
+      },
+      text: {
+        type: Type.STRING,
+        description: 'New title for the card (optional).',
+      },
+      goal: {
+        type: Type.STRING,
+        description: 'New goal/description for the card (optional).',
+      },
+      stage: {
+        type: Type.STRING,
+        description: "New stage ('workshopping', 'ready_to_go', 'current_best', 'archived') (optional).",
+        enum: ['workshopping', 'ready_to_go', 'current_best', 'archived'],
+      },
+    },
+    required: ['id'],
+  },
+};
+
 const readDocumentTool = {
   name: 'read_document',
   description:
@@ -122,7 +151,7 @@ interface Message {
 }
 
 const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { ideas, addIdea } = useIdeaStore();
+  const { ideas, addIdea, updateIdea } = useIdeaStore();
   const { documents, loadDocuments } = useDocumentStore();
 
   // --- PERSISTED STATE (from Zustand + Firebase) ---
@@ -370,7 +399,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       // 1. Prepare Board Context (Dynamic from Store)
       const ideaContext = ideas
-        .map((i) => `- [${i.category}]: ${i.text}`)
+        .map((i) => `- [ID: ${i.id}] [${i.category}]: ${i.text}`)
         .join('\n');
 
       const today = new Date().toLocaleDateString('en-US', {
@@ -438,6 +467,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             3. ADHERE STRICTLY to the Project Constraints. Do not suggest vendors on the restriction list.
             4. When the user asks to create cards, add ideas, or generate items for the board, USE THE create_card FUNCTION to add them. You can call it multiple times to create multiple cards.
             5. You can read the full text of any document listed in "AVAILABLE DOCUMENTS" using the read_document tool. Use this to provide detailed answers based on file content.
+            6. You can update existing cards (title, goal, stage) using the update_card tool. Use the ID from the "Board State" to target the correct card.
 
             --- THE CANON (IMMUTABLE TRUTH) ---
             ${canonContext}
@@ -482,7 +512,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
           tools: [
-            { functionDeclarations: [createCardTool, listSummariesTool, readDocumentTool] },
+            { functionDeclarations: [createCardTool, listSummariesTool, readDocumentTool, updateCardTool] },
           ],
         },
         contents: [
@@ -510,8 +540,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             if (name === 'read_document' && args) {
               const { filename } = args as { filename: string };
+              const safeFilename = filename || '';
               const docMeta = documents.find(
-                (d) => d.filename.toLowerCase() === filename.toLowerCase()
+                (d) => d.filename?.toLowerCase() === safeFilename.toLowerCase()
               );
 
               if (docMeta) {
@@ -522,13 +553,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     type: blob.type,
                   });
                   const extractedText = await extractText(file);
-                  documentContentResponse = `### 📄 Content of "${filename}"\n\n${extractedText}\n\n---\n(End of document)`;
+                  documentContentResponse = `### 📄 Content of "${safeFilename}"\n\n${extractedText}\n\n---\n(End of document)`;
                 } catch (err) {
                   console.error('Failed to read document:', err);
-                  documentContentResponse = `Error: Failed to read content of "${filename}".`;
+                  documentContentResponse = `Error: Failed to read content of "${safeFilename}".`;
                 }
               } else {
-                documentContentResponse = `Error: Document "${filename}" not found.`;
+                documentContentResponse = `Error: Document "${safeFilename}" not found.`;
               }
             }
 
@@ -547,6 +578,25 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 }
             }
 
+            if (name === 'update_card' && args) {
+              const updateArgs = args as {
+                id: string;
+                text?: string;
+                goal?: string;
+                stage?: string;
+              };
+
+              if (updateArgs.id) {
+                const updates: any = {};
+                if (updateArgs.text) updates.text = updateArgs.text;
+                if (updateArgs.goal) updates.goal = updateArgs.goal;
+                if (updateArgs.stage) updates.stage = updateArgs.stage;
+
+                await updateIdea(updateArgs.id, updates);
+                createdCards.push(`• Updated card [ID: ${updateArgs.id}]`);
+              }
+            }
+
             if (name === 'create_card' && args) {
               // Execute the create_card function
               const cardArgs = args as {
@@ -558,8 +608,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               };
 
               // Map category name to code
+              const safeCategory = cardArgs.category || 'Client Experience';
               const categoryCode =
-                CATEGORY_MAP[cardArgs.category.toLowerCase()] || 'B';
+                CATEGORY_MAP[safeCategory.toLowerCase()] || 'B';
 
               // Validate subcategory (extract page names from PageDefinition objects)
               const validSubcategoryNames = CATEGORY_STRUCTURE[
