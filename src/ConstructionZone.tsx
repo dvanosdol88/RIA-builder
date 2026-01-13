@@ -375,17 +375,7 @@ export default function ConstructionZone() {
     setNewItemText('');
   };
 
-  const moveToStage = (id: string, stage: Stage, shouldUnpin = false) => {
-    setIdeaStage(id, stage);
-    if (shouldUnpin) {
-      updateIdea(id, { pinned: false });
-    }
-  };
-
   const IdeaCard = ({ idea }: { idea: Idea }) => {
-    const actionButtonClass =
-      'text-xs px-2 py-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all opacity-0 group-hover:opacity-100';
-
     const stageName = STAGE_LABELS[idea.stage];
     const displayName = stageName.replace(/^\d+_/, '').replace(/_/g, ' ');
 
@@ -400,20 +390,38 @@ export default function ConstructionZone() {
         onClick={() => setSelectedIdeaId(idea.id)}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1 min-w-0">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
               {displayName}
             </div>
             <p className="text-slate-900 font-medium leading-snug">
               {idea.text}
             </p>
+            
+            {/* Goal Preview - First 2 lines */}
+            {idea.goal && (
+              <div className="mt-2">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Goal</p>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{idea.goal}</p>
+              </div>
+            )}
+
+            {/* Notes Preview - First 2 lines of combined notes */}
+            {idea.notes && idea.notes.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Notes</p>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed italic">
+                  {idea.notes.map(n => n.text).join(' • ')}
+                </p>
+              </div>
+            )}
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation();
               toggleIdeaPinned(idea.id);
             }}
-            className={`text-xs px-2 py-0.5 rounded border transition-all ${
+            className={`text-xs px-2 py-0.5 rounded border transition-all shrink-0 ${
               idea.pinned
                 ? 'border-amber-400 bg-amber-50 text-amber-700 opacity-100'
                 : 'border-transparent text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100'
@@ -421,91 +429,6 @@ export default function ConstructionZone() {
           >
             {idea.pinned ? 'Unpin' : 'Pin'}
           </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {idea.stage !== 'current_best' && idea.stage !== 'archived' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                moveToStage(idea.id, 'current_best');
-              }}
-              className={actionButtonClass}
-            >
-              Move to Current best
-            </button>
-          )}
-
-          {idea.stage === 'workshopping' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleIdeaFocus(idea.id, idea.category, idea.subcategory);
-              }}
-              className={actionButtonClass}
-            >
-              {idea.focused ? 'Unfocus' : 'Focus'}
-            </button>
-          )}
-
-          {idea.stage !== 'workshopping' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                moveToStage(idea.id, 'workshopping', true);
-              }}
-              className={actionButtonClass}
-            >
-              Move to Workshopping
-            </button>
-          )}
-
-          {idea.stage !== 'ready_to_go' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                moveToStage(idea.id, 'ready_to_go', true);
-              }}
-              className={actionButtonClass}
-            >
-              Move to Ready to go
-            </button>
-          )}
-
-          {idea.stage !== 'archived' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                moveToStage(idea.id, 'archived', true);
-              }}
-              className="text-xs px-2 py-0.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-            >
-              Archive
-            </button>
-          )}
-
-          {idea.stage === 'archived' && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  moveToStage(idea.id, 'workshopping', true);
-                }}
-                className={actionButtonClass}
-              >
-                Restore to Workshopping
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  moveToStage(idea.id, 'ready_to_go', true);
-                }}
-                className={actionButtonClass}
-              >
-                Restore to Ready to go
-              </button>
-            </>
-          )}
         </div>
       </div>
     );

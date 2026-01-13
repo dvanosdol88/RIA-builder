@@ -21,9 +21,11 @@ import {
   Stage,
 } from '../ideaStore';
 import { useConsultantStore } from '../consultantStore';
+import { useDocumentStore } from '../documentStore';
 import { calculatorAPI } from '../services/calculatorService';
 import * as firebaseService from '../services/firebaseService';
 import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
+import { extractText } from '../utils/documentTextExtractor';
 
 // Map human-readable category names to our Category codes
 const CATEGORY_MAP: Record<string, Category> = {
@@ -86,6 +88,23 @@ const createCardTool = {
   },
 };
 
+const readDocumentTool = {
+  name: 'read_document',
+  description:
+    'Reads the full text content of a specific document. Use this when you need to answer questions based on the detailed content of a file listed in "AVAILABLE DOCUMENTS".',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filename: {
+        type: Type.STRING,
+        description:
+          'The exact filename of the document to read (as listed in AVAILABLE DOCUMENTS).',
+      },
+    },
+    required: ['filename'],
+  },
+};
+
 const listSummariesTool = {
   name: 'list_summaries',
   description:
@@ -104,6 +123,7 @@ interface Message {
 
 const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { ideas, addIdea } = useIdeaStore();
+  const { documents, loadDocuments } = useDocumentStore();
 
   // --- PERSISTED STATE (from Zustand + Firebase) ---
   const {
@@ -159,6 +179,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   // Load data from Firebase on mount
   useEffect(() => {
     loadAll();
+    loadDocuments();
     
     // Load external data sources (Checklist & Calculator)
     const loadExternalData = async () => {
@@ -369,6 +390,15 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       // 3. Construct the System Instruction (using persisted settings)
       
+      // Format Documents Context
+      const documentsContext = documents.length > 0 
+        ? documents.map(doc => {
+            const tags = doc.tags && doc.tags.length > 0 ? ` [Tags: ${doc.tags.join(', ')}]` : '';
+            const summary = doc.summary ? `\nSummary: ${doc.summary}` : '';
+            return `- ${doc.filename}${tags}${summary}`;
+        }).join('\n')
+        : 'No uploaded documents available.';
+
       // Format Checklist Context
       const checklistContext = CHECKLIST_PAGES.map(page => {
           const items = page.items.map(item => {
@@ -400,13 +430,14 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         : 'No previous session context.';
 
       const systemInstruction = `
-            Role: You are the Guardian of the RIA Project. You are an expert Consultant.
+            Role: You are GenConsult, the Guardian of the RIA Project. You are an expert Consultant.
 
             CRITICAL INSTRUCTIONS:
             1. You possess a set of "Canonical Documents". These are the Single Source of Truth.
             2. If the user's Board State or Query contradicts the Canon, you must gently correct them.
             3. ADHERE STRICTLY to the Project Constraints. Do not suggest vendors on the restriction list.
             4. When the user asks to create cards, add ideas, or generate items for the board, USE THE create_card FUNCTION to add them. You can call it multiple times to create multiple cards.
+            5. You can read the full text of any document listed in "AVAILABLE DOCUMENTS" using the read_document tool. Use this to provide detailed answers based on file content.
 
             --- THE CANON (IMMUTABLE TRUTH) ---
             ${canonContext}
@@ -415,6 +446,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             --- PROJECT METRICS (CAPACITY CALCULATOR) ---
             ${calculatorContext}
             ---------------------------------------------
+
+            --- AVAILABLE DOCUMENTS (FILESYSTEM) ---
+            ${documentsContext}
+            ----------------------------------------
 
             --- EXECUTION PLAN STATUS (PRE-LAUNCH CHECKLIST) ---
             ${checklistContext}
@@ -447,7 +482,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
           tools: [
-            { functionDeclarations: [createCardTool, listSummariesTool] },
+            { functionDeclarations: [createCardTool, listSummariesTool, readDocumentTool] },
           ],
         },
         contents: [
@@ -459,6 +494,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // 6. Process the response - check for function calls
       const createdCards: string[] = [];
       let summaryListResponse = '';
+      let documentContentResponse = '';
       let hasTextResponse = false;
       let textResponse = '';
 
@@ -471,6 +507,30 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           // Check if this part is a function call
           if (part.functionCall) {
             const { name, args } = part.functionCall;
+
+            if (name === 'read_document' && args) {
+              const { filename } = args as { filename: string };
+              const docMeta = documents.find(
+                (d) => d.filename.toLowerCase() === filename.toLowerCase()
+              );
+
+              if (docMeta) {
+                try {
+                  const response = await fetch(docMeta.storageUrl);
+                  const blob = await response.blob();
+                  const file = new File([blob], docMeta.filename, {
+                    type: blob.type,
+                  });
+                  const extractedText = await extractText(file);
+                  documentContentResponse = `### 📄 Content of "${filename}"\n\n${extractedText}\n\n---\n(End of document)`;
+                } catch (err) {
+                  console.error('Failed to read document:', err);
+                  documentContentResponse = `Error: Failed to read content of "${filename}".`;
+                }
+              } else {
+                documentContentResponse = `Error: Document "${filename}" not found.`;
+              }
+            }
 
             if (name === 'list_summaries') {
                 // Execute list_summaries
@@ -549,7 +609,12 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // 7. Build the response message
       let finalMessage = '';
 
-      if (summaryListResponse) {
+      if (documentContentResponse) {
+        finalMessage = documentContentResponse;
+        if (hasTextResponse && textResponse.trim()) {
+           finalMessage += `\n\n${textResponse}`;
+        }
+      } else if (summaryListResponse) {
           finalMessage = summaryListResponse;
            if (hasTextResponse && textResponse.trim()) {
               finalMessage += `\n\n${textResponse}`;
@@ -683,7 +748,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
         <div className="flex items-center gap-2 text-indigo-700 font-bold">
           <Sparkles size={20} />
-          <span>Gemini Consultant</span>
+          <span>GenConsult</span>
         </div>
 
         {/* View Toggles */}
