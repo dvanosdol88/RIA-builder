@@ -4,7 +4,10 @@ import {
   analyzeDocument,
   DocumentSuggestions,
 } from '../services/documentAnalysisService';
-import { extractText, generatePdfThumbnail } from '../utils/documentTextExtractor';
+import {
+  extractText,
+  generatePdfThumbnail,
+} from '../utils/documentTextExtractor';
 
 interface UploadDocumentModalProps {
   file: File;

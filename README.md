@@ -38,6 +38,11 @@ A practice management and workflow tool for Registered Investment Advisors (RIAs
    npm run dev
    ```
 
+## Testing
+
+- Lint: `npm run lint`
+- E2E (Playwright): `npm run test:e2e`
+
 ## Deployment
 
 Live at: [ria-builder.vercel.app](https://ria-builder.vercel.app)

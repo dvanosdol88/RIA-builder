@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",

@@ -229,7 +229,9 @@ export interface ConversationSummary {
 /**
  * Save a conversation summary to Firestore
  */
-export async function saveConversationSummary(summary: ConversationSummary): Promise<void> {
+export async function saveConversationSummary(
+  summary: ConversationSummary
+): Promise<void> {
   const docRef = doc(db, SUMMARIES_COLLECTION, summary.id);
   await setDoc(docRef, summary);
 }
@@ -237,14 +239,20 @@ export async function saveConversationSummary(summary: ConversationSummary): Pro
 /**
  * Get the most recent conversation summaries
  */
-export async function getRecentConversationSummaries(limitCount: number = 10): Promise<ConversationSummary[]> {
+export async function getRecentConversationSummaries(
+  limitCount: number = 10
+): Promise<ConversationSummary[]> {
   const summariesCollection = collection(db, SUMMARIES_COLLECTION);
-  const q = query(summariesCollection, orderBy('timestamp', 'desc'), limit(limitCount));
+  const q = query(
+    summariesCollection,
+    orderBy('timestamp', 'desc'),
+    limit(limitCount)
+  );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     ...doc.data(),
-    id: doc.id
+    id: doc.id,
   })) as ConversationSummary[];
 }
 

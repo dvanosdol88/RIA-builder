@@ -80,3 +80,5 @@ lpt7
 lpt8
 lpt9
 .vercel
+test-results/
+playwright-report/

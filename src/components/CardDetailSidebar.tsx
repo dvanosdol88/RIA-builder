@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -28,6 +28,15 @@ const STAGE_LABELS: Record<Stage, string> = {
   archived: '30_archived',
 };
 
+const normalizeUrl = (rawUrl: string) => {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+};
+
 export default function CardDetailSidebar({
   ideaId,
   onClose,
@@ -50,6 +59,7 @@ export default function CardDetailSidebar({
   const [showGoalInput, setShowGoalInput] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
+  const [newUrlInput, setNewUrlInput] = useState('');
 
   useEffect(() => {
     loadDocuments();
@@ -117,6 +127,24 @@ export default function CardDetailSidebar({
     if (url) {
       updateIdea(idea.id, { images: [...(idea.images || []), url] });
     }
+  };
+
+  const addReferenceUrl = () => {
+    const normalizedUrl = normalizeUrl(newUrlInput);
+    if (!normalizedUrl) return;
+    const currentUrls = idea.referenceUrls || [];
+    if (currentUrls.includes(normalizedUrl)) {
+      setNewUrlInput('');
+      return;
+    }
+    updateIdea(idea.id, { referenceUrls: [...currentUrls, normalizedUrl] });
+    setNewUrlInput('');
+  };
+
+  const removeReferenceUrl = (urlToRemove: string) => {
+    const currentUrls = idea.referenceUrls || [];
+    const nextUrls = currentUrls.filter((url) => url !== urlToRemove);
+    updateIdea(idea.id, { referenceUrls: nextUrls });
   };
 
   const removeImage = (index: number) => {
@@ -283,6 +311,70 @@ export default function CardDetailSidebar({
               <span className="text-sm font-medium">+ Add image</span>
             </div>
           )}
+        </section>
+
+        {/* URLs Section */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+              URLs
+            </h3>
+          </div>
+
+          <div className="space-y-3">
+            {(idea.referenceUrls || []).length > 0 ? (
+              <div className="space-y-2">
+                {(idea.referenceUrls || []).map((url) => (
+                  <div
+                    key={url}
+                    className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 group"
+                  >
+                    <Link2 size={14} className="text-blue-500 flex-shrink-0" />
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700 truncate flex-1 hover:underline"
+                    >
+                      {url}
+                    </a>
+                    <button
+                      onClick={() => removeReferenceUrl(url)}
+                      className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Remove URL"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 italic">No URLs yet.</p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={newUrlInput}
+                onChange={(e) => setNewUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addReferenceUrl();
+                  }
+                }}
+                placeholder="https://example.com"
+                className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <button
+                onClick={addReferenceUrl}
+                disabled={!newUrlInput.trim()}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:hover:bg-blue-600"
+              >
+                Add URL
+              </button>
+            </div>
+          </div>
         </section>
 
         {/* Linked Documents Section */}

@@ -91,10 +91,7 @@ export default function ConstructionZone() {
     error,
     loadIdeas,
     addIdea,
-    updateIdea,
-    setIdeaStage,
     toggleIdeaPinned,
-    toggleIdeaFocus,
     // Custom pages
     addCustomPage,
     deleteCustomPage,
@@ -397,24 +394,56 @@ export default function ConstructionZone() {
             <p className="text-slate-900 font-medium leading-snug">
               {idea.text}
             </p>
-            
+
             {/* Goal Preview - First 2 lines */}
             {idea.goal && (
               <div className="mt-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Goal</p>
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{idea.goal}</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Goal
+                </p>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                  {idea.goal}
+                </p>
               </div>
             )}
 
             {/* Notes Preview - First 2 lines of combined notes */}
             {idea.notes && idea.notes.length > 0 && (
               <div className="mt-2">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Notes</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Notes
+                </p>
                 <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed italic">
-                  {idea.notes.map(n => n.text).join(' • ')}
+                  {idea.notes.map((n) => n.text).join(' • ')}
                 </p>
               </div>
             )}
+
+            {/* URLs Preview */}
+            <div className="mt-2">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                URLs
+              </p>
+              {idea.referenceUrls && idea.referenceUrls.length > 0 ? (
+                <div className="space-y-0.5">
+                  {idea.referenceUrls.slice(0, 2).map((url, index) => (
+                    <p
+                      key={`${url}-${index}`}
+                      className="text-xs text-slate-600 truncate"
+                    >
+                      {url}
+                    </p>
+                  ))}
+                  {idea.referenceUrls.length > 2 && (
+                    <p className="text-[10px] text-slate-400">
+                      +{idea.referenceUrls.length - 2} more
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No URLs yet.</p>
+              )}
+            </div>
           </div>
           <button
             onClick={(e) => {

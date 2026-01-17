@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  ChevronRight,
-  Clock,
-  CheckCircle2,
-  Circle,
-} from 'lucide-react';
+import { ChevronRight, Clock, CheckCircle2, Circle } from 'lucide-react';
 import * as firebaseService from '../services/firebaseService';
 import type { ChecklistStatus } from '../services/firebaseService';
 
@@ -520,7 +515,8 @@ export default function PreLaunchChecklistView() {
       console.error('Failed to save checklist state:', error);
       // Rollback on error
       setChecklistStates((prev) => {
-        const { [itemId]: _, ...rest } = prev;
+        const { [itemId]: removedItem, ...rest } = prev;
+        void removedItem;
         return rest;
       });
     } finally {

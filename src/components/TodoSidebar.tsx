@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Save, Trash2, Calendar, Tag, AlertCircle } from 'lucide-react';
+import { X, Save, Trash2, Calendar, Tag } from 'lucide-react';
 import { TodoItem } from '../todoStore';
 
 interface TodoSidebarProps {
@@ -32,9 +32,7 @@ export default function TodoSidebar({
         setDescription(todo.description || '');
         setPriority(todo.priority);
         setDueDate(
-          todo.dueDate
-            ? new Date(todo.dueDate).toISOString().split('T')[0]
-            : ''
+          todo.dueDate ? new Date(todo.dueDate).toISOString().split('T')[0] : ''
         );
         setTags(todo.tags.join(', '));
       } else {
@@ -110,7 +108,10 @@ export default function TodoSidebar({
       </div>
 
       {/* Form Content */}
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="flex-1 overflow-y-auto p-6 space-y-6"
+      >
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
             Task Name *
@@ -145,7 +146,9 @@ export default function TodoSidebar({
             </label>
             <select
               value={priority}
-              onChange={(e) => setPriority(e.target.value as TodoItem['priority'])}
+              onChange={(e) =>
+                setPriority(e.target.value as TodoItem['priority'])
+              }
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="high">High</option>

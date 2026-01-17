@@ -44,9 +44,9 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
     (idea.images && idea.images.length > 0) ||
     (idea.linkedDocuments && idea.linkedDocuments.length > 0);
 
-  const availableStages: Stage[] = (Object.keys(STAGE_LABELS) as Stage[]).filter(
-    (stage) => stage !== idea.stage && stage !== 'archived'
-  );
+  const availableStages: Stage[] = (
+    Object.keys(STAGE_LABELS) as Stage[]
+  ).filter((stage) => stage !== idea.stage && stage !== 'archived');
 
   return (
     <div
@@ -70,12 +70,16 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
               </span>
             )}
           </div>
-          <p className="text-gray-800 font-medium leading-tight mb-2">{idea.text}</p>
-          
+          <p className="text-gray-800 font-medium leading-tight mb-2">
+            {idea.text}
+          </p>
+
           {/* Goal Preview */}
           {idea.goal && (
             <div className="mb-2">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Goal</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                Goal
+              </p>
               <p className="text-xs text-gray-600 line-clamp-2">{idea.goal}</p>
             </div>
           )}
@@ -83,10 +87,40 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
           {/* Notes Preview */}
           {idea.notes && idea.notes.length > 0 && (
             <div className="mb-1">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Latest Note</p>
-              <p className="text-xs text-gray-600 line-clamp-2">{idea.notes[0].text}</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                Latest Note
+              </p>
+              <p className="text-xs text-gray-600 line-clamp-2">
+                {idea.notes[0].text}
+              </p>
             </div>
           )}
+
+          {/* URLs Preview */}
+          <div className="mb-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              URLs
+            </p>
+            {idea.referenceUrls && idea.referenceUrls.length > 0 ? (
+              <div className="space-y-0.5">
+                {idea.referenceUrls.slice(0, 2).map((url, index) => (
+                  <p
+                    key={`${url}-${index}`}
+                    className="text-xs text-gray-600 truncate"
+                  >
+                    {url}
+                  </p>
+                ))}
+                {idea.referenceUrls.length > 2 && (
+                  <p className="text-[10px] text-gray-400">
+                    +{idea.referenceUrls.length - 2} more
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No URLs yet.</p>
+            )}
+          </div>
         </div>
         <button
           onClick={() => removeIdea(idea.id)}
@@ -99,14 +133,21 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
 
       <div className="mt-auto pt-2 flex items-center justify-between">
         <div className="flex-1"></div>
-        
+
         <div className="flex items-center gap-2">
-           {hasAttachments && (
-            <div className="text-gray-400 flex items-center" title="Has attachments">
-              {idea.images && idea.images.length > 0 ? <ImageIcon size={14} /> : <Paperclip size={14} />}
+          {hasAttachments && (
+            <div
+              className="text-gray-400 flex items-center"
+              title="Has attachments"
+            >
+              {idea.images && idea.images.length > 0 ? (
+                <ImageIcon size={14} />
+              ) : (
+                <Paperclip size={14} />
+              )}
             </div>
           )}
-          
+
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-xs text-gray-500 hover:text-gray-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
@@ -151,13 +192,15 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
 
           {/* Actions Section */}
           <div className="border-t border-gray-200 pt-3 space-y-2">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Actions</p>
-            
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+              Actions
+            </p>
+
             <button
               onClick={toggleRefined}
               className={`w-full text-xs flex items-center justify-center gap-1 px-2 py-1.5 rounded border transition-colors ${
-                idea.refined 
-                  ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                idea.refined
+                  ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               }`}
             >
@@ -166,14 +209,14 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
             </button>
 
             {availableStages.map((stage) => (
-               <button
-                  key={stage}
-                  onClick={() => setIdeaStage(idea.id, stage)}
-                  className="w-full text-xs flex items-center justify-center gap-1 px-2 py-1.5 rounded border border-gray-200 bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors"
-                >
-                  <ArrowRight size={14} />
-                  Move to {STAGE_LABELS[stage]}
-                </button>
+              <button
+                key={stage}
+                onClick={() => setIdeaStage(idea.id, stage)}
+                className="w-full text-xs flex items-center justify-center gap-1 px-2 py-1.5 rounded border border-gray-200 bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors"
+              >
+                <ArrowRight size={14} />
+                Move to {STAGE_LABELS[stage]}
+              </button>
             ))}
           </div>
         </div>

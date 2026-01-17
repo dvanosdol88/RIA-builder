@@ -57,7 +57,7 @@ export default function TodoView() {
         tags: todoData.tags || [],
       });
     }
-    // Close sidebar is handled by sidebar calling onClose on success, 
+    // Close sidebar is handled by sidebar calling onClose on success,
     // but here we just need to ensure state is clean if we were to manage it.
     // Actually TodoSidebar calls onSave then onClose.
   };

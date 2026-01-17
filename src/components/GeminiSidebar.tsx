@@ -19,10 +19,11 @@ import {
   Category,
   CATEGORY_STRUCTURE,
   Stage,
+  Idea,
 } from '../ideaStore';
 import { useConsultantStore } from '../consultantStore';
 import { useDocumentStore } from '../documentStore';
-import { calculatorAPI } from '../services/calculatorService';
+import { calculatorAPI, CalculatorData } from '../services/calculatorService';
 import * as firebaseService from '../services/firebaseService';
 import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
 import { extractText } from '../utils/documentTextExtractor';
@@ -109,7 +110,8 @@ const updateCardTool = {
       },
       stage: {
         type: Type.STRING,
-        description: "New stage ('workshopping', 'ready_to_go', 'current_best', 'archived') (optional).",
+        description:
+          "New stage ('workshopping', 'ready_to_go', 'current_best', 'archived') (optional).",
         enum: ['workshopping', 'ready_to_go', 'current_best', 'archived'],
       },
     },
@@ -158,12 +160,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
     canonDocs,
     isCanonLoading,
-    addCanonDoc,
     deleteCanonDoc,
     userContext,
     projectConstraints,
     isSettingsLoading,
-    saveSettings,
     loadAll,
   } = useConsultantStore();
 
@@ -171,12 +171,17 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [activeView, setActiveView] = useState<'chat' | 'settings' | 'canon'>(
     'chat'
   );
-  
-  // --- EXTERNAL DATA STATE ---
-  const [checklistStatus, setChecklistStatus] = useState<Record<string, string>>({});
-  const [calculatorData, setCalculatorData] = useState<any>(null);
-  const [recentSummaries, setRecentSummaries] = useState<firebaseService.ConversationSummary[]>([]);
 
+  // --- EXTERNAL DATA STATE ---
+  const [checklistStatus, setChecklistStatus] = useState<
+    Record<string, string>
+  >({});
+  const [calculatorData, setCalculatorData] = useState<CalculatorData | null>(
+    null
+  );
+  const [recentSummaries, setRecentSummaries] = useState<
+    firebaseService.ConversationSummary[]
+  >([]);
 
   // --- CHAT STATE (Local only - not persisted) ---
   const [messages, setMessages] = useState<Message[]>([
@@ -209,24 +214,25 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   useEffect(() => {
     loadAll();
     loadDocuments();
-    
+
     // Load external data sources (Checklist & Calculator)
     const loadExternalData = async () => {
-        try {
-            // 1. Load Checklist
-            const states = await firebaseService.getChecklistStates();
-            setChecklistStatus(states);
-            
-            // 2. Load Calculator
-            const calcData = await calculatorAPI.get();
-            if (calcData) setCalculatorData(calcData);
+      try {
+        // 1. Load Checklist
+        const states = await firebaseService.getChecklistStates();
+        setChecklistStatus(states);
 
-            // 3. Load Recent Summaries
-            const summaries = await firebaseService.getRecentConversationSummaries();
-            setRecentSummaries(summaries);
-        } catch (err) {
-            console.error("Failed to load external agent context:", err);
-        }
+        // 2. Load Calculator
+        const calcData = await calculatorAPI.get();
+        if (calcData) setCalculatorData(calcData);
+
+        // 3. Load Recent Summaries
+        const summaries =
+          await firebaseService.getRecentConversationSummaries();
+        setRecentSummaries(summaries);
+      } catch (err) {
+        console.error('Failed to load external agent context:', err);
+      }
     };
     loadExternalData();
   }, [loadAll]);
@@ -248,12 +254,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   }, [messages, activeView]);
 
   useEffect(() => {
-    if (
-      isConversationModeActive &&
-      !isRecording &&
-      !isLoading &&
-      !isSpeaking
-    ) {
+    if (isConversationModeActive && !isRecording && !isLoading && !isSpeaking) {
       startRecording();
     }
 
@@ -310,7 +311,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === 'recording'
+    ) {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
@@ -343,7 +347,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         // Automatically send the transcribed text
         handleSend(data.text);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Transcription error full details:', error);
       // Fallback for user UI if possible
     } finally {
@@ -377,9 +381,10 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     try {
       // Try to get API key from multiple sources
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
+
       if (!apiKey) {
-        const missingKeyMsg = 'Configuration Error: Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your .env file.';
+        const missingKeyMsg =
+          'Configuration Error: Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your .env file.';
         console.error(missingKeyMsg);
         setMessages((prev) => [
           ...prev,
@@ -418,27 +423,35 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         .join('\n');
 
       // 3. Construct the System Instruction (using persisted settings)
-      
+
       // Format Documents Context
-      const documentsContext = documents.length > 0 
-        ? documents.map(doc => {
-            const tags = doc.tags && doc.tags.length > 0 ? ` [Tags: ${doc.tags.join(', ')}]` : '';
-            const summary = doc.summary ? `\nSummary: ${doc.summary}` : '';
-            return `- ${doc.filename}${tags}${summary}`;
-        }).join('\n')
-        : 'No uploaded documents available.';
+      const documentsContext =
+        documents.length > 0
+          ? documents
+              .map((doc) => {
+                const tags =
+                  doc.tags && doc.tags.length > 0
+                    ? ` [Tags: ${doc.tags.join(', ')}]`
+                    : '';
+                const summary = doc.summary ? `\nSummary: ${doc.summary}` : '';
+                return `- ${doc.filename}${tags}${summary}`;
+              })
+              .join('\n')
+          : 'No uploaded documents available.';
 
       // Format Checklist Context
-      const checklistContext = CHECKLIST_PAGES.map(page => {
-          const items = page.items.map(item => {
-              const status = checklistStatus[item.id] || 'not_started';
-              return `  - [${status.toUpperCase().replace('_', ' ')}] ${item.text} (${item.timeframe})`;
-          }).join('\n');
-          return `${page.name}:\n${items}`;
+      const checklistContext = CHECKLIST_PAGES.map((page) => {
+        const items = page.items
+          .map((item) => {
+            const status = checklistStatus[item.id] || 'not_started';
+            return `  - [${status.toUpperCase().replace('_', ' ')}] ${item.text} (${item.timeframe})`;
+          })
+          .join('\n');
+        return `${page.name}:\n${items}`;
       }).join('\n\n');
 
       // Format Calculator Context
-      const calculatorContext = calculatorData 
+      const calculatorContext = calculatorData
         ? `
           - Clients: ${calculatorData.numClients}
           - Meetings/Client/Year: ${calculatorData.meetingsPerClient}
@@ -451,12 +464,18 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         : 'No calculator data available.';
 
       // Format Past Context
-      const pastContext = recentSummaries.length > 0 
-        ? recentSummaries.slice().reverse().map(s => { // Reverse to show chronological order
-            const date = new Date(s.timestamp).toLocaleDateString();
-            return `SESSION [${date}]: ${s.summary}\nDECISIONS: ${s.keyDecisions.join(', ')}`;
-        }).join('\n\n')
-        : 'No previous session context.';
+      const pastContext =
+        recentSummaries.length > 0
+          ? recentSummaries
+              .slice()
+              .reverse()
+              .map((s) => {
+                // Reverse to show chronological order
+                const date = new Date(s.timestamp).toLocaleDateString();
+                return `SESSION [${date}]: ${s.summary}\nDECISIONS: ${s.keyDecisions.join(', ')}`;
+              })
+              .join('\n\n')
+          : 'No previous session context.';
 
       const systemInstruction = `
             Role: You are GenConsult, the Guardian of the RIA Project. You are an expert Consultant.
@@ -512,7 +531,14 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         config: {
           systemInstruction: { parts: [{ text: systemInstruction }] },
           tools: [
-            { functionDeclarations: [createCardTool, listSummariesTool, readDocumentTool, updateCardTool] },
+            {
+              functionDeclarations: [
+                createCardTool,
+                listSummariesTool,
+                readDocumentTool,
+                updateCardTool,
+              ],
+            },
           ],
         },
         contents: [
@@ -564,18 +590,27 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             }
 
             if (name === 'list_summaries') {
-                // Execute list_summaries
-                const summaries = recentSummaries; // Already loaded in state
-                if (summaries.length === 0) {
-                    summaryListResponse = "No previous conversation summaries found.";
-                } else {
-                    summaryListResponse = "### 📜 Past Conversation Summaries\n\n" + 
-                        summaries.slice().reverse().map(s => {
-                            const date = new Date(s.timestamp).toLocaleDateString();
-                            const time = new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                            return `**[${date} ${time}]**\n${s.summary}\n*Decisions: ${s.keyDecisions.join(', ')}*`;
-                        }).join('\n\n---\n\n');
-                }
+              // Execute list_summaries
+              const summaries = recentSummaries; // Already loaded in state
+              if (summaries.length === 0) {
+                summaryListResponse =
+                  'No previous conversation summaries found.';
+              } else {
+                summaryListResponse =
+                  '### 📜 Past Conversation Summaries\n\n' +
+                  summaries
+                    .slice()
+                    .reverse()
+                    .map((s) => {
+                      const date = new Date(s.timestamp).toLocaleDateString();
+                      const time = new Date(s.timestamp).toLocaleTimeString(
+                        [],
+                        { hour: '2-digit', minute: '2-digit' }
+                      );
+                      return `**[${date} ${time}]**\n${s.summary}\n*Decisions: ${s.keyDecisions.join(', ')}*`;
+                    })
+                    .join('\n\n---\n\n');
+              }
             }
 
             if (name === 'update_card' && args) {
@@ -587,7 +622,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               };
 
               if (updateArgs.id) {
-                const updates: any = {};
+                const updates: Partial<Idea> = {};
                 if (updateArgs.text) updates.text = updateArgs.text;
                 if (updateArgs.goal) updates.goal = updateArgs.goal;
                 if (updateArgs.stage) updates.stage = updateArgs.stage;
@@ -663,13 +698,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       if (documentContentResponse) {
         finalMessage = documentContentResponse;
         if (hasTextResponse && textResponse.trim()) {
-           finalMessage += `\n\n${textResponse}`;
+          finalMessage += `\n\n${textResponse}`;
         }
       } else if (summaryListResponse) {
-          finalMessage = summaryListResponse;
-           if (hasTextResponse && textResponse.trim()) {
-              finalMessage += `\n\n${textResponse}`;
-           }
+        finalMessage = summaryListResponse;
+        if (hasTextResponse && textResponse.trim()) {
+          finalMessage += `\n\n${textResponse}`;
+        }
       } else if (createdCards.length > 0) {
         finalMessage = `✅ Created ${createdCards.length} card${createdCards.length > 1 ? 's' : ''} on your board:\n\n${createdCards.join('\n')}`;
         if (hasTextResponse && textResponse.trim()) {
@@ -695,9 +730,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         utterance.onend = () => setIsSpeaking(false);
         window.speechSynthesis.speak(utterance);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Gemini Error:', error);
-      const errorMsg = `Connection error: ${error.message || 'Please check your API key and network connection.'}`;
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Please check your API key and network connection.';
+      const errorMsg = `Connection error: ${errorMessage}`;
       setMessages((prev) => [
         ...prev,
         {
@@ -720,21 +759,21 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const handleEndSession = async () => {
     if (messages.length <= 1) return; // Don't summarize empty sessions (just welcome msg)
-    
+
     setIsLoading(true);
     try {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) throw new Error("API Key missing");
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) throw new Error('API Key missing');
 
-        const ai = new GoogleGenAI({ apiKey });
-        
-        // Construct the prompt for summarization
-        const conversationText = messages
-            .filter(m => m.id !== 'welcome')
-            .map(m => `${m.role.toUpperCase()}: ${m.text}`)
-            .join('\n\n');
+      const ai = new GoogleGenAI({ apiKey });
 
-        const summaryPrompt = `
+      // Construct the prompt for summarization
+      const conversationText = messages
+        .filter((m) => m.id !== 'welcome')
+        .map((m) => `${m.role.toUpperCase()}: ${m.text}`)
+        .join('\n\n');
+
+      const summaryPrompt = `
         Analyze the following conversation history.
         1. Write a concise paragraph summary of what was discussed, focusing on user intent and business context.
         2. Extract a list of any key decisions made or specific preferences stated by the user.
@@ -749,44 +788,53 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         ${conversationText}
         `;
 
-        const result = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }],
-        });
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }],
+      });
 
-        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        // Simple cleanup if md blocks are present
-        const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const summaryData = JSON.parse(jsonStr);
+      const responseText =
+        result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      // Simple cleanup if md blocks are present
+      const jsonStr = responseText
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+      const summaryData = JSON.parse(jsonStr);
 
-        // Save to Firebase
-        await firebaseService.saveConversationSummary({
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
-            summary: summaryData.summary || "No summary generated.",
-            keyDecisions: summaryData.keyDecisions || []
-        });
+      // Save to Firebase
+      await firebaseService.saveConversationSummary({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        summary: summaryData.summary || 'No summary generated.',
+        keyDecisions: summaryData.keyDecisions || [],
+      });
 
-        // Clear local state
-        setMessages([{
-            id: 'welcome',
-            role: 'model',
-            text: 'Session saved and memory updated. Starting fresh context.'
-        }]);
+      // Clear local state
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'model',
+          text: 'Session saved and memory updated. Starting fresh context.',
+        },
+      ]);
 
-        // Refresh summaries
-        const newSummaries = await firebaseService.getRecentConversationSummaries();
-        setRecentSummaries(newSummaries);
-
+      // Refresh summaries
+      const newSummaries =
+        await firebaseService.getRecentConversationSummaries();
+      setRecentSummaries(newSummaries);
     } catch (error) {
-        console.error("Failed to summarize session:", error);
-        setMessages(prev => [...prev, {
-            id: crypto.randomUUID(),
-            role: 'model',
-            text: 'Failed to save session summary. Please try again.'
-        }]);
+      console.error('Failed to summarize session:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'model',
+          text: 'Failed to save session summary. Please try again.',
+        },
+      ]);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -828,20 +876,20 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </div>
 
         <div className="flex items-center gap-1">
-            <button
-              onClick={handleEndSession}
-              disabled={isLoading || messages.length <= 1}
-              className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors disabled:opacity-30"
-              title="Save & Clear Session Memory"
-            >
-              <Save size={18} />
-            </button>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-700 ml-1"
-            >
-              <X size={20} />
-            </button>
+          <button
+            onClick={handleEndSession}
+            disabled={isLoading || messages.length <= 1}
+            className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors disabled:opacity-30"
+            title="Save & Clear Session Memory"
+          >
+            <Save size={18} />
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 ml-1"
+          >
+            <X size={20} />
+          </button>
         </div>
       </div>
 
@@ -1047,8 +1095,8 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               className="w-full h-48 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none shadow-sm font-mono"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Add "Do Not Use" lists here to prevent Gemini from suggesting
-              restricted vendors or tools.
+              Add &quot;Do Not Use&quot; lists here to prevent Gemini from
+              suggesting restricted vendors or tools.
             </p>
           </div>
 

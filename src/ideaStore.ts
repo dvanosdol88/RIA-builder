@@ -206,6 +206,7 @@ export interface Idea {
   images: string[];
   notes: { id: string; text: string; timestamp: number }[];
   linkedDocuments: string[];
+  referenceUrls: string[];
 }
 
 type IdeaInput = Omit<Idea, 'id' | 'timestamp' | 'pinned' | 'stage'> &
@@ -281,6 +282,7 @@ const SEED_DATA: Idea[] = [
     images: [],
     notes: [],
     linkedDocuments: [],
+    referenceUrls: [],
   },
   {
     id: '2',
@@ -296,6 +298,7 @@ const SEED_DATA: Idea[] = [
     images: [],
     notes: [],
     linkedDocuments: [],
+    referenceUrls: [],
   },
 ];
 
@@ -350,6 +353,7 @@ export const useIdeaStore = create<IdeaStore>()((set, get) => ({
       images: ideaInput.images ?? [],
       notes: ideaInput.notes ?? [],
       linkedDocuments: ideaInput.linkedDocuments ?? [],
+      referenceUrls: ideaInput.referenceUrls ?? [],
     };
 
     // Optimistic update
