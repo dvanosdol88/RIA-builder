@@ -13,6 +13,7 @@ import {
   Mic,
   MicOff,
   Save,
+  HardDrive,
 } from 'lucide-react';
 import {
   useIdeaStore,
@@ -23,6 +24,7 @@ import {
 } from '../ideaStore';
 import { useConsultantStore } from '../consultantStore';
 import { useDocumentStore } from '../documentStore';
+import GoogleDriveFiles from './GoogleDriveFiles';
 import { calculatorAPI, CalculatorData } from '../services/calculatorService';
 import * as firebaseService from '../services/firebaseService';
 import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
@@ -168,7 +170,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   } = useConsultantStore();
 
   // --- VIEW STATE ---
-  const [activeView, setActiveView] = useState<'chat' | 'settings' | 'canon'>(
+  const [activeView, setActiveView] = useState<'chat' | 'settings' | 'canon' | 'drive'>(
     'chat'
   );
 
@@ -867,6 +869,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <Database size={16} />
           </button>
           <button
+            onClick={() => setActiveView('drive')}
+            className={`p-1.5 rounded transition-all ${activeView === 'drive' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            title="Google Drive"
+          >
+            <HardDrive size={16} />
+          </button>
+          <button
             onClick={() => setActiveView('settings')}
             className={`p-1.5 rounded transition-all ${activeView === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             title="Settings"
@@ -1064,6 +1073,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <Plus size={16} /> Add to Knowledge Base
             </button>
           </div>
+        </div>
+      )}
+
+      {/* --- VIEW: GOOGLE DRIVE --- */}
+      {!isDataLoading && activeView === 'drive' && (
+        <div className="flex-1 p-4 bg-gray-50 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+           <GoogleDriveFiles />
         </div>
       )}
 

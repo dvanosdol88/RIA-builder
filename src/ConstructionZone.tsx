@@ -39,6 +39,7 @@ import IdeaHopperView from './components/IdeaHopperView';
 import TodoView from './components/TodoView';
 import OutlineView from './components/OutlineView';
 import PreLaunchChecklistView from './components/PreLaunchChecklistView';
+import Auth from './components/Auth';
 
 type ActiveView =
   | 'construction'
@@ -509,6 +510,7 @@ export default function ConstructionZone() {
           >
             <Sparkles className="w-5 h-5" />
           </button>
+          <Auth />
         </div>
       </header>
 
