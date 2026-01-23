@@ -172,13 +172,14 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
   getCanonicalDocuments: () => {
     const { documents, searchQuery } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
       .filter((d) => d.isCanonical)
       .filter((d) =>
         normalizedQuery
-          ? d.filename.toLowerCase().includes(normalizedQuery) ||
+          ? normalize(d.filename).includes(normalizedQuery) ||
             (d.tags ?? []).some((tag) =>
-              tag.toLowerCase().includes(normalizedQuery)
+              normalize(tag ?? undefined).includes(normalizedQuery)
             )
           : true
       )
@@ -188,13 +189,14 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
   getNonCanonicalDocuments: () => {
     const { documents, searchQuery } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
       .filter((d) => !d.isCanonical)
       .filter((d) =>
         normalizedQuery
-          ? d.filename.toLowerCase().includes(normalizedQuery) ||
+          ? normalize(d.filename).includes(normalizedQuery) ||
             (d.tags ?? []).some((tag) =>
-              tag.toLowerCase().includes(normalizedQuery)
+              normalize(tag ?? undefined).includes(normalizedQuery)
             )
           : true
       )
@@ -204,12 +206,13 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
   getFilteredDocuments: () => {
     const { documents, searchQuery } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
       .filter((d) =>
         normalizedQuery
-          ? d.filename.toLowerCase().includes(normalizedQuery) ||
+          ? normalize(d.filename).includes(normalizedQuery) ||
             (d.tags ?? []).some((tag) =>
-              tag.toLowerCase().includes(normalizedQuery)
+              normalize(tag ?? undefined).includes(normalizedQuery)
             )
           : true
       )
