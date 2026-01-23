@@ -29,6 +29,11 @@ import { calculatorAPI, CalculatorData } from '../services/calculatorService';
 import * as firebaseService from '../services/firebaseService';
 import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
 import { extractText } from '../utils/documentTextExtractor';
+import { 
+  readGoogleDoc, 
+  createGoogleDoc, 
+  getDriveFiles 
+} from '../services/googleDriveService';
 
 // Map human-readable category names to our Category codes
 const CATEGORY_MAP: Record<string, Category> = {
@@ -124,7 +129,7 @@ const updateCardTool = {
 const readDocumentTool = {
   name: 'read_document',
   description:
-    'Reads the full text content of a specific document. Use this when you need to answer questions based on the detailed content of a file listed in "AVAILABLE DOCUMENTS".',
+    'Reads the full text content of a specific document. Use this when you need to answer questions based on the detailed content of a file listed in "AVAILABLE DOCUMENTS" (locally uploaded files).',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -148,6 +153,41 @@ const listSummariesTool = {
   },
 };
 
+// --- NEW DRIVE TOOLS ---
+const listDriveFilesTool = {
+  name: 'list_drive_files',
+  description: 'Lists the user\'s Google Drive files (focusing on folders and Google Docs). Use this to see what files are available to read.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {}, 
+  },
+};
+
+const readDriveFileTool = {
+  name: 'read_google_doc',
+  description: 'Reads the text content of a Google Doc from the user\'s Drive. You MUST provide the fileId from the list_drive_files tool.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fileId: { type: Type.STRING, description: 'The ID of the file to read.' },
+    },
+    required: ['fileId'],
+  },
+};
+
+const createDriveFileTool = {
+  name: 'create_google_doc',
+  description: 'Creates a new Google Doc in the user\'s Drive with the specified title and content.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      title: { type: Type.STRING, description: 'Title of the new document' },
+      content: { type: Type.STRING, description: 'Text content to insert into the document' },
+    },
+    required: ['title', 'content'],
+  },
+};
+
 interface Message {
   id: string;
   role: 'user' | 'model';
@@ -159,7 +199,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { documents, loadDocuments } = useDocumentStore();
 
   // --- PERSISTED STATE (from Zustand + Firebase) ---
-  const {
+  const { 
     canonDocs,
     isCanonLoading,
     deleteCanonDoc,
@@ -167,6 +207,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     projectConstraints,
     isSettingsLoading,
     loadAll,
+    addCanonDoc
   } = useConsultantStore();
 
   // --- VIEW STATE ---
@@ -175,13 +216,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 
   // --- EXTERNAL DATA STATE ---
-  const [checklistStatus, setChecklistStatus] = useState<
+  const [checklistStatus, setChecklistStatus] = useState< 
     Record<string, string>
   >({});
   const [calculatorData, setCalculatorData] = useState<CalculatorData | null>(
     null
   );
-  const [recentSummaries, setRecentSummaries] = useState<
+  const [recentSummaries, setRecentSummaries] = useState< 
     firebaseService.ConversationSummary[]
   >([]);
 
@@ -190,7 +231,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     {
       id: 'welcome',
       role: 'model',
-      text: 'Hello David! I am aligned with your Master Index and constraints. How shall we proceed?',
+      text: 'Hello David! I am aligned with your Master Index and constraints. I can now access your Google Drive to read and create documents. How shall we proceed?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -289,8 +330,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: 'audio/webm',
         });
-        if (audioBlob.size > 1000) {
-          // Only transcribe if it's not a tiny accidental click
+        if (audioBlob.size > 1000) { // Only transcribe if it's not a tiny accidental click
           await handleTranscribe(audioBlob);
         }
         stream.getTracks().forEach((track) => track.stop());
@@ -487,8 +527,12 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             2. If the user's Board State or Query contradicts the Canon, you must gently correct them.
             3. ADHERE STRICTLY to the Project Constraints. Do not suggest vendors on the restriction list.
             4. When the user asks to create cards, add ideas, or generate items for the board, USE THE create_card FUNCTION to add them. You can call it multiple times to create multiple cards.
-            5. You can read the full text of any document listed in "AVAILABLE DOCUMENTS" using the read_document tool. Use this to provide detailed answers based on file content.
-            6. You can update existing cards (title, goal, stage) using the update_card tool. Use the ID from the "Board State" to target the correct card.
+            5. You can read the full text of any document listed in "AVAILABLE DOCUMENTS" using the read_document tool.
+            6. YOU CAN NOW ACCESS GOOGLE DRIVE.
+               - Use list_drive_files to see what's in the user's Drive (search for specific files by name).
+               - Use read_google_doc to read the content of a specific Google Doc by its ID.
+               - Use create_google_doc to SAVE your output or summaries to a new Google Doc.
+            7. You can update existing cards (title, goal, stage) using the update_card tool. Use the ID from the "Board State" to target the correct card.
 
             --- THE CANON (IMMUTABLE TRUTH) ---
             ${canonContext}
@@ -539,6 +583,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 listSummariesTool,
                 readDocumentTool,
                 updateCardTool,
+                listDriveFilesTool,
+                readDriveFileTool,
+                createDriveFileTool,
               ],
             },
           ],
@@ -553,6 +600,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       const createdCards: string[] = [];
       let summaryListResponse = '';
       let documentContentResponse = '';
+      let driveListResponse = '';
+      let driveReadResponse = '';
+      let driveCreateResponse = '';
       let hasTextResponse = false;
       let textResponse = '';
 
@@ -565,6 +615,38 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           // Check if this part is a function call
           if (part.functionCall) {
             const { name, args } = part.functionCall;
+
+            // --- DRIVE TOOLS ---
+            if (name === 'list_drive_files') {
+              try {
+                const files = await getDriveFiles(20); // List top 20
+                driveListResponse = `### 📂 Google Drive Files:\n` + 
+                  files.map((f: any) => `- [${f.name}](https://docs.google.com/document/d/${f.id}) (ID: ${f.id})`).join('\n');
+              } catch (err: any) {
+                driveListResponse = `Error listing Drive files: ${err.message}`;
+              }
+            }
+
+            if (name === 'read_google_doc' && args) {
+               const { fileId } = args as { fileId: string };
+               try {
+                 const content = await readGoogleDoc(fileId);
+                 driveReadResponse = `### 📄 Content of Google Doc (${fileId}):\n\n${content.substring(0, 5000)}${content.length > 5000 ? '...[truncated]' : ''}`;
+               } catch (err: any) {
+                 driveReadResponse = `Error reading Google Doc: ${err.message}`;
+               }
+            }
+
+            if (name === 'create_google_doc' && args) {
+              const { title, content } = args as { title: string; content: string };
+              try {
+                const doc = await createGoogleDoc(title, content);
+                driveCreateResponse = `✅ Created new Google Doc: [${doc.title}](${doc.url})`;
+              } catch (err: any) {
+                driveCreateResponse = `Error creating Google Doc: ${err.message}`;
+              }
+            }
+            // --- END DRIVE TOOLS ---
 
             if (name === 'read_document' && args) {
               const { filename } = args as { filename: string };
@@ -695,28 +777,21 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }
 
       // 7. Build the response message
-      let finalMessage = '';
-
-      if (documentContentResponse) {
-        finalMessage = documentContentResponse;
-        if (hasTextResponse && textResponse.trim()) {
-          finalMessage += `\n\n${textResponse}`;
-        }
-      } else if (summaryListResponse) {
-        finalMessage = summaryListResponse;
-        if (hasTextResponse && textResponse.trim()) {
-          finalMessage += `\n\n${textResponse}`;
-        }
-      } else if (createdCards.length > 0) {
-        finalMessage = `✅ Created ${createdCards.length} card${createdCards.length > 1 ? 's' : ''} on your board:\n\n${createdCards.join('\n')}`;
-        if (hasTextResponse && textResponse.trim()) {
-          finalMessage += `\n\n${textResponse}`;
-        }
-      } else if (hasTextResponse) {
-        finalMessage = textResponse;
-      } else {
-        finalMessage = "I couldn't generate a response.";
+      let finalMessageParts = [];
+      
+      if (documentContentResponse) finalMessageParts.push(documentContentResponse);
+      if (summaryListResponse) finalMessageParts.push(summaryListResponse);
+      if (driveListResponse) finalMessageParts.push(driveListResponse);
+      if (driveReadResponse) finalMessageParts.push(driveReadResponse);
+      if (driveCreateResponse) finalMessageParts.push(driveCreateResponse);
+      if (createdCards.length > 0) finalMessageParts.push(`✅ Created ${createdCards.length} card${createdCards.length > 1 ? 's' : ''} on your board:\n\n${createdCards.join('\n')}`);
+      if (hasTextResponse && textResponse.trim()) finalMessageParts.push(textResponse);
+      
+      if (finalMessageParts.length === 0) {
+        finalMessageParts.push("I couldn't generate a response.");
       }
+      
+      const finalMessage = finalMessageParts.join('\n\n');
 
       const modelMsg: Message = {
         id: crypto.randomUUID(),
@@ -757,6 +832,20 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAddDoc = () => {
+    if (!newDocTitle.trim() || !newDocContent.trim()) return;
+    addCanonDoc(newDocTitle, newDocContent);
+    setNewDocTitle('');
+    setNewDocContent('');
+  };
+
+  const handleSaveSettings = () => {
+     // This would typically involve an update to the consultantStore
+     // But for now we just log it as there isn't a direct setter exposed in the provided code
+     // You might need to add setSettings methods to useConsultantStore if they don't exist
+     console.log("Saving settings", editUserContext, editProjectConstraints);
   };
 
   const handleEndSession = async () => {
@@ -925,7 +1014,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${
+                  className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${ 
                     msg.role === 'user'
                       ? 'bg-indigo-600 text-white rounded-br-none shadow-md'
                       : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none shadow-sm'
@@ -975,12 +1064,12 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <button
                   onClick={handleToggleConversationMode}
                   disabled={isLoading}
-                  className={`p-1.5 rounded-md transition-colors ${
+                  className={`p-1.5 rounded-md transition-colors ${ 
                     isConversationModeActive
                       ? 'bg-red-100 text-red-600 hover:bg-red-200'
                       : 'text-gray-500 hover:text-indigo-600'
                   } border-2 border-red-500 bg-red-200`}
-                  title={
+                  title={ 
                     isConversationModeActive
                       ? 'Stop Conversation'
                       : 'Start Conversation'
@@ -1014,7 +1103,8 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             Canonical Documents
           </h3>
           <p className="text-xs text-gray-500 mb-4">
-            The AI will strictly align all advice with these documents. Changes
+            The AI will strictly align all advice with these documents.
+            Changes
             are saved automatically.
           </p>
 
