@@ -1,15 +1,21 @@
 import React, { useEffect } from 'react';
 import { useAuthStore } from '../authStore';
 import { signInWithGoogle, signOut, onAuthChange } from '../services/authService';
-import { User as UserIcon, LogOut } from 'lucide-react';
+import { User as UserIcon, LogOut, AlertCircle } from 'lucide-react';
 
 const Auth = () => {
-  const { user, isLoading, setUser } = useAuthStore();
+  const { user, isLoading, error, setUser } = useAuthStore();
 
   useEffect(() => {
     const unsubscribe = onAuthChange(setUser);
     return () => unsubscribe();
   }, [setUser]);
+
+  useEffect(() => {
+    if (error) {
+      alert(`Authentication Error: ${error.message}`);
+    }
+  }, [error]);
 
   if (isLoading) {
     return (
@@ -43,13 +49,20 @@ const Auth = () => {
   }
 
   return (
-    <button
-      onClick={signInWithGoogle}
-      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2"
-    >
-      <UserIcon className="w-4 h-4" />
-      Sign In
-    </button>
+    <div className="flex items-center gap-2">
+      {error && (
+        <div className="text-red-400" title={error.message}>
+          <AlertCircle className="w-5 h-5" />
+        </div>
+      )}
+      <button
+        onClick={signInWithGoogle}
+        className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2"
+      >
+        <UserIcon className="w-4 h-4" />
+        Sign In
+      </button>
+    </div>
   );
 };
 
