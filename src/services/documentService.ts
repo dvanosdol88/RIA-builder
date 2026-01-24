@@ -25,14 +25,14 @@ export interface DocumentMeta {
   size: number;
   uploadedAt: number;
   storageUrl: string;
-  thumbnailUrl?: string;
+  thumbnailUrl?: string | null;
   linkedCards: string[];
   isCanonical: boolean;
-  page?: string;
-  section?: string;
-  tab?: string;
+  page?: string | null;
+  section?: string | null;
+  tab?: string | null;
   tags?: string[];
-  summary?: string;
+  summary?: string | null;
 }
 
 /**
@@ -79,11 +79,11 @@ export async function uploadDocument(
       thumbnailUrl: metadata?.thumbnailUrl,
       linkedCards: [],
       isCanonical: false,
-      page: metadata?.page?.trim() || undefined,
-      section: metadata?.section?.trim() || undefined,
-      tab: metadata?.tab?.trim() || undefined,
+      page: metadata?.page?.trim() || null,
+      section: metadata?.section?.trim() || null,
+      tab: metadata?.tab?.trim() || null,
       tags: trimmedTags,
-      summary: metadata?.summary?.trim() || undefined,
+      summary: metadata?.summary?.trim() || null,
     };
 
     // Save to Firestore
