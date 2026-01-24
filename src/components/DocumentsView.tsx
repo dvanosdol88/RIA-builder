@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Upload, Loader2, AlertCircle, FolderOpen } from 'lucide-react';
+import { Search, Upload, Loader2, AlertCircle, FolderOpen, Camera } from 'lucide-react';
 import { useDocumentStore, DocumentMeta } from '../documentStore';
 import DocumentCard from './DocumentCard';
 import DocumentPreviewModal from './DocumentPreviewModal';
 import UploadDocumentModal from './UploadDocumentModal';
+import CameraCaptureModal from './CameraCaptureModal';
 
 export default function DocumentsView() {
   const {
@@ -23,6 +24,7 @@ export default function DocumentsView() {
 
   const [previewDoc, setPreviewDoc] = useState<DocumentMeta | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recentTags = useMemo(() => getRecentTags(), [documents, getRecentTags]);
@@ -47,6 +49,11 @@ export default function DocumentsView() {
     if (!file) return;
 
     setPendingFile(file);
+  };
+
+  const handleCameraCapture = (file: File) => {
+    setPendingFile(file);
+    setShowCamera(false);
   };
 
   const handleDelete = async (doc: DocumentMeta) => {
@@ -104,18 +111,29 @@ export default function DocumentsView() {
             </p>
           </div>
 
-          <button
-            onClick={handleUploadClick}
-            disabled={uploading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
-          >
-            {uploading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Upload size={18} />
-            )}
-            {uploading ? 'Uploading...' : 'Upload Document'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCamera(true)}
+              disabled={uploading}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-lg font-medium transition-colors"
+              title="Take Photo"
+            >
+              <Camera size={18} />
+              <span className="hidden sm:inline">Take Photo</span>
+            </button>
+            <button
+              onClick={handleUploadClick}
+              disabled={uploading}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
+            >
+              {uploading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Upload size={18} />
+              )}
+              {uploading ? 'Uploading...' : 'Upload Document'}
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -185,12 +203,22 @@ export default function DocumentsView() {
               <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-slate-200">
                 <FolderOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500 mb-4">No documents uploaded yet</p>
-                <button
-                  onClick={handleUploadClick}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Upload your first document
-                </button>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="flex items-center gap-2 text-slate-600 hover:text-slate-700 font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <Camera size={18} />
+                    Take Photo
+                  </button>
+                  <button
+                    onClick={handleUploadClick}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Upload size={18} />
+                    Upload File
+                  </button>
+                </div>
               </div>
             )}
 
@@ -214,6 +242,14 @@ export default function DocumentsView() {
           <DocumentPreviewModal
             doc={previewDoc}
             onClose={() => setPreviewDoc(null)}
+          />
+        )}
+
+        {/* Camera Modal */}
+        {showCamera && (
+          <CameraCaptureModal
+            onCapture={handleCameraCapture}
+            onCancel={() => setShowCamera(false)}
           />
         )}
 
