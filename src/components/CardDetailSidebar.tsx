@@ -102,7 +102,7 @@ export default function CardDetailSidebar({
   const addNote = () => {
     const note = {
       id: crypto.randomUUID(),
-      text: 'New note...',
+      text: '',
       timestamp: Date.now(),
     };
     const updatedNotes = [note, ...(idea.notes || [])];
@@ -239,6 +239,7 @@ export default function CardDetailSidebar({
                   <textarea
                     autoFocus
                     defaultValue={note.text}
+                    placeholder="New note..."
                     onBlur={(e) => {
                       updateNote(note.id, e.target.value);
                       setEditingNoteId(null);
@@ -247,10 +248,10 @@ export default function CardDetailSidebar({
                   />
                 ) : (
                   <p
-                    className="text-sm text-slate-700 whitespace-pre-wrap cursor-pointer"
+                    className={`text-sm whitespace-pre-wrap cursor-pointer ${!note.text ? 'text-slate-400 italic' : 'text-slate-700'}`}
                     onClick={() => setEditingNoteId(note.id)}
                   >
-                    {note.text}
+                    {note.text || 'Empty note - click to edit'}
                   </p>
                 )}
                 <button

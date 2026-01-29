@@ -50,7 +50,7 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
 
   return (
     <div
-      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-1 h-full flex flex-col ${idea.type === 'question' ? 'border-orange-400' : 'border-blue-500'}`}
+      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-1 ${!isExpanded ? 'max-h-[320px] overflow-hidden' : ''} flex flex-col ${idea.type === 'question' ? 'border-orange-400' : 'border-blue-500'}`}
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
@@ -70,7 +70,7 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
               </span>
             )}
           </div>
-          <p className="text-gray-800 font-medium leading-tight mb-2">
+          <p className="text-gray-800 font-medium leading-tight mb-2 line-clamp-4">
             {idea.text}
           </p>
 

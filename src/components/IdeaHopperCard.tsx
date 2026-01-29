@@ -287,7 +287,7 @@ export default function IdeaHopperCard({
   return (
     <div
       onClick={() => onSelect(idea.id)}
-      className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 p-4 transition-all cursor-pointer group"
+      className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 p-4 transition-all cursor-pointer group max-h-[320px] overflow-hidden flex flex-col"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -338,7 +338,7 @@ export default function IdeaHopperCard({
             </div>
           ) : (
             <div className="flex items-center gap-1 group/title">
-              <h3 className="text-slate-900 font-semibold text-base leading-tight truncate">
+              <h3 className="text-slate-900 font-semibold text-base leading-tight line-clamp-4">
                 {idea.title}
               </h3>
               <button

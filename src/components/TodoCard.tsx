@@ -70,7 +70,7 @@ export default function TodoCard({
   return (
     <div
       onClick={() => onEdit(todo.id)}
-      className={`bg-white border rounded-lg shadow-sm hover:shadow-md p-4 transition-all cursor-pointer group ${
+      className={`bg-white border rounded-lg shadow-sm hover:shadow-md p-4 transition-all cursor-pointer group max-h-[320px] overflow-hidden flex flex-col ${
         todo.completed
           ? 'border-slate-200 opacity-60'
           : 'border-slate-200 hover:border-slate-300'
@@ -93,7 +93,7 @@ export default function TodoCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p
-              className={`font-medium leading-snug ${
+              className={`font-medium leading-snug line-clamp-4 ${
                 todo.completed
                   ? 'text-slate-400 line-through'
                   : 'text-slate-900'
