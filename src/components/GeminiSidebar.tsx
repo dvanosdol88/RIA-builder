@@ -14,6 +14,9 @@ import {
   MicOff,
   Save,
   HardDrive,
+  Paperclip,
+  Image,
+  FileText,
 } from 'lucide-react';
 import {
   useIdeaStore,
@@ -29,11 +32,25 @@ import { calculatorAPI, CalculatorData } from '../services/calculatorService';
 import * as firebaseService from '../services/firebaseService';
 import { CHECKLIST_PAGES } from './PreLaunchChecklistView';
 import { extractText } from '../utils/documentTextExtractor';
-import { 
-  readGoogleDoc, 
-  createGoogleDoc, 
-  getDriveFiles 
+import {
+  readGoogleDoc,
+  createGoogleDoc,
+  getDriveFiles,
+  getDriveFolders,
+  createDriveFolder,
+  moveFileToFolder,
+  renameFile,
+  copyFileToFolder,
+  searchDriveFiles,
+  updateDocumentContent,
+  appendToDocument,
 } from '../services/googleDriveService';
+import { sendSlackMessage } from '../services/slackService';
+import { runWebResearch } from '../services/webResearchService';
+import {
+  getIntegrationStatus,
+  IntegrationStatus,
+} from '../services/integrationStatusService';
 
 // Map human-readable category names to our Category codes
 const CATEGORY_MAP: Record<string, Category> = {
@@ -153,13 +170,157 @@ const listSummariesTool = {
   },
 };
 
+const sendSlackMessageTool = {
+  name: 'send_slack_message',
+  description:
+    'Sends a message to the configured Slack channel. Use this when the user asks to post an update to Slack.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      text: {
+        type: Type.STRING,
+        description: 'The message text to send to Slack.',
+      },
+    },
+    required: ['text'],
+  },
+};
+
+const webResearchTool = {
+  name: 'web_research',
+  description:
+    'Performs web research on a query and returns summarized results with citations. Use this for external research.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: 'The research question or search query.',
+      },
+      maxResults: {
+        type: Type.NUMBER,
+        description: 'Optional: max number of results (1-10). Default is 5.',
+      },
+      searchDepth: {
+        type: Type.STRING,
+        description: 'Optional: "basic" or "advanced". Default is "basic".',
+        enum: ['basic', 'advanced'],
+      },
+      topic: {
+        type: Type.STRING,
+        description: 'Optional: topic category for the search.',
+      },
+      timeRange: {
+        type: Type.STRING,
+        description: 'Optional: time range filter (e.g., "day", "week", "month", "year").',
+      },
+    },
+    required: ['query'],
+  },
+};
+
 // --- NEW DRIVE TOOLS ---
 const listDriveFilesTool = {
   name: 'list_drive_files',
-  description: 'Lists the user\'s Google Drive files (focusing on folders and Google Docs). Use this to see what files are available to read.',
+  description: 'Lists ALL files in the user\'s Google Drive (or a specific folder). Shows all file types including images, PDFs, spreadsheets, docs, etc. Use this to explore Drive contents or navigate into folders.',
   parameters: {
     type: Type.OBJECT,
-    properties: {}, 
+    properties: {
+      folderId: {
+        type: Type.STRING,
+        description: 'Optional: The folder ID to list contents of. If not provided, lists files from the root/recent.',
+      },
+    },
+  },
+};
+
+const searchDriveFilesTool = {
+  name: 'search_drive_files',
+  description: 'Searches for files in Google Drive by name or content. Use this to find specific files.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: 'The search query (file name or content to search for).',
+      },
+    },
+    required: ['query'],
+  },
+};
+
+const createFolderTool = {
+  name: 'create_folder',
+  description: 'Creates a new folder in Google Drive.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      folderName: {
+        type: Type.STRING,
+        description: 'The name of the new folder.',
+      },
+      parentFolderId: {
+        type: Type.STRING,
+        description: 'Optional: The parent folder ID. If not provided, creates in root.',
+      },
+    },
+    required: ['folderName'],
+  },
+};
+
+const renameFileTool = {
+  name: 'rename_file',
+  description: 'Renames a file or folder in Google Drive.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fileId: {
+        type: Type.STRING,
+        description: 'The ID of the file or folder to rename.',
+      },
+      newName: {
+        type: Type.STRING,
+        description: 'The new name for the file or folder.',
+      },
+    },
+    required: ['fileId', 'newName'],
+  },
+};
+
+const copyFileTool = {
+  name: 'copy_file',
+  description: 'Copies a file to a different folder (keeps the original in place).',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fileId: {
+        type: Type.STRING,
+        description: 'The ID of the file to copy.',
+      },
+      targetFolderId: {
+        type: Type.STRING,
+        description: 'The destination folder ID.',
+      },
+      newName: {
+        type: Type.STRING,
+        description: 'Optional: A new name for the copied file.',
+      },
+    },
+    required: ['fileId', 'targetFolderId'],
+  },
+};
+
+const listFoldersTool = {
+  name: 'list_folders',
+  description: 'Lists only folders in Google Drive. Useful for finding where to move/copy files.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      parentFolderId: {
+        type: Type.STRING,
+        description: 'Optional: The parent folder ID to list subfolders of.',
+      },
+    },
   },
 };
 
@@ -188,10 +349,67 @@ const createDriveFileTool = {
   },
 };
 
+// --- DOCUMENT EDITING TOOLS ---
+const editDocumentTool = {
+  name: 'edit_document',
+  description: 'Edits a Google Doc by replacing its entire content OR appending new content. Use this to update registration documents, change dates, modify text, etc. You MUST provide the fileId from list_drive_files or from an uploaded document.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fileId: {
+        type: Type.STRING,
+        description: 'The Google Drive file ID of the document to edit.',
+      },
+      newContent: {
+        type: Type.STRING,
+        description: 'The new content to write to the document. If mode is "replace", this replaces all content. If mode is "append", this is added to the end.',
+      },
+      mode: {
+        type: Type.STRING,
+        description: 'Edit mode: "replace" to replace all content, "append" to add to the end. Default is "replace".',
+        enum: ['replace', 'append'],
+      },
+    },
+    required: ['fileId', 'newContent'],
+  },
+};
+
+const moveToDriveFolderTool = {
+  name: 'move_to_drive_folder',
+  description: 'Moves or copies a file to a specific Google Drive folder. Use this to archive photos to the Real Estate Drive folder or organize files.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fileId: {
+        type: Type.STRING,
+        description: 'The Google Drive file ID of the file to move.',
+      },
+      targetFolderId: {
+        type: Type.STRING,
+        description: 'The Google Drive folder ID to move the file into.',
+      },
+      folderName: {
+        type: Type.STRING,
+        description: 'Human-readable name of the target folder (for confirmation messages).',
+      },
+    },
+    required: ['fileId', 'targetFolderId'],
+  },
+};
+
+interface MessageAttachment {
+  type: 'image' | 'pdf' | 'document';
+  name: string;
+  mimeType: string;
+  base64Data: string; // Base64 encoded file data
+  preview?: string; // For images, a preview URL
+}
+
 interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
+  attachments?: MessageAttachment[];
 }
 
 const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -225,13 +443,16 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [recentSummaries, setRecentSummaries] = useState< 
     firebaseService.ConversationSummary[]
   >([]);
+  const [integrationStatus, setIntegrationStatus] =
+    useState<IntegrationStatus | null>(null);
+  const [integrationStatusError, setIntegrationStatusError] = useState('');
 
   // --- CHAT STATE (Local only - not persisted) ---
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'model',
-      text: 'Hello David! I am aligned with your Master Index and constraints. I can now access your Google Drive to read and create documents. How shall we proceed?',
+      text: 'Hello David! I am aligned with your Master Index and constraints. I can now access your Google Drive to read, edit, and create documents. How shall we proceed?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -240,7 +461,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [isConversationModeActive, setIsConversationModeActive] =
     useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- LOCAL SETTINGS FORM STATE (for editing before save) ---
   const [editUserContext, setEditUserContext] = useState(userContext);
@@ -273,8 +496,14 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         const summaries =
           await firebaseService.getRecentConversationSummaries();
         setRecentSummaries(summaries);
+
+        // 4. Load Integration Status
+        const status = await getIntegrationStatus();
+        setIntegrationStatus(status);
+        setIntegrationStatusError('');
       } catch (err) {
         console.error('Failed to load external agent context:', err);
+        setIntegrationStatusError('Unable to load integration status.');
       }
     };
     loadExternalData();
@@ -407,17 +636,88 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
+  // --- FILE ATTACHMENT HANDLING ---
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // Remove the data URL prefix (e.g., "data:image/png;base64,")
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: MessageAttachment[] = [];
+
+    for (const file of Array.from(files)) {
+      // Determine file type
+      let type: 'image' | 'pdf' | 'document' = 'document';
+      if (file.type.startsWith('image/')) {
+        type = 'image';
+      } else if (file.type === 'application/pdf') {
+        type = 'pdf';
+      }
+
+      // Convert to base64
+      const base64Data = await fileToBase64(file);
+
+      // Create preview URL for images
+      let preview: string | undefined;
+      if (type === 'image') {
+        preview = URL.createObjectURL(file);
+      }
+
+      newAttachments.push({
+        type,
+        name: file.name,
+        mimeType: file.type,
+        base64Data,
+        preview,
+      });
+    }
+
+    setPendingAttachments((prev) => [...prev, ...newAttachments]);
+
+    // Clear the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setPendingAttachments((prev) => {
+      const attachment = prev[index];
+      // Revoke object URL if it exists
+      if (attachment.preview) {
+        URL.revokeObjectURL(attachment.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
   const handleSend = async (overrideInput?: string) => {
     const messageText = overrideInput || input;
-    if (!messageText.trim() || isLoading) return;
+    if ((!messageText.trim() && pendingAttachments.length === 0) || isLoading) return;
+
+    // Capture current attachments before clearing
+    const currentAttachments = [...pendingAttachments];
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      text: messageText,
+      text: messageText || (currentAttachments.length > 0 ? `[Attached ${currentAttachments.length} file(s)]` : ''),
+      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setPendingAttachments([]); // Clear pending attachments
     setIsLoading(true);
 
     try {
@@ -528,11 +828,21 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             3. ADHERE STRICTLY to the Project Constraints. Do not suggest vendors on the restriction list.
             4. When the user asks to create cards, add ideas, or generate items for the board, USE THE create_card FUNCTION to add them. You can call it multiple times to create multiple cards.
             5. You can read the full text of any document listed in "AVAILABLE DOCUMENTS" using the read_document tool.
-            6. YOU CAN NOW ACCESS GOOGLE DRIVE.
-               - Use list_drive_files to see what's in the user's Drive (search for specific files by name).
+            6. YOU HAVE FULL ACCESS TO GOOGLE DRIVE - you can see, manipulate, and organize ALL files (not just docs).
+               - Use list_drive_files to see ALL files in Drive (images, PDFs, spreadsheets, docs, etc.). Pass a folderId to explore inside a folder.
+               - Use search_drive_files to find files by name or content.
+               - Use list_folders to see available folders.
                - Use read_google_doc to read the content of a specific Google Doc by its ID.
                - Use create_google_doc to SAVE your output or summaries to a new Google Doc.
-            7. You can update existing cards (title, goal, stage) using the update_card tool. Use the ID from the "Board State" to target the correct card.
+               - Use create_folder to make new folders for organization.
+               - Use edit_document to MODIFY existing Google Docs (replace all content or append). This is powerful - use it to update registration documents, change dates, fix errors, etc.
+               - Use move_to_drive_folder to MOVE files to specific folders (e.g., archive photos to Real Estate folder).
+               - Use copy_file to COPY files to folders while keeping the original.
+               - Use rename_file to rename files or folders.
+            7. You can send a Slack message to the configured channel using send_slack_message.
+            8. Use web_research to gather external sources and include citations in your response.
+            9. You can update existing cards (title, goal, stage) using the update_card tool. Use the ID from the "Board State" to target the correct card.
+            10. When the user asks to update, change, or edit a document (like changing a go-live date), use edit_document with the file ID. First use read_google_doc to see the current content if needed.
 
             --- THE CANON (IMMUTABLE TRUTH) ---
             ${canonContext}
@@ -566,12 +876,50 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // 4. Prepare History (Memory) - local messages only
       const historyContents = messages
         .filter((m) => m.id !== 'welcome')
-        .map((m) => ({
-          role: m.role,
-          parts: [{ text: m.text }],
-        }));
+        .map((m) => {
+          const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
 
-      // 5. Execute API Call with Function Calling Tools
+          // Add text part
+          if (m.text) {
+            parts.push({ text: m.text });
+          }
+
+          // Add attachment parts (for history with attachments)
+          if (m.attachments && m.attachments.length > 0) {
+            for (const attachment of m.attachments) {
+              parts.push({
+                inlineData: {
+                  mimeType: attachment.mimeType,
+                  data: attachment.base64Data,
+                },
+              });
+            }
+          }
+
+          return { role: m.role, parts };
+        });
+
+      // 5. Build current message parts (with any attachments)
+      const currentMessageParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+
+      // Add text first
+      if (userMsg.text) {
+        currentMessageParts.push({ text: userMsg.text });
+      }
+
+      // Add any attachments as inlineData
+      if (currentAttachments.length > 0) {
+        for (const attachment of currentAttachments) {
+          currentMessageParts.push({
+            inlineData: {
+              mimeType: attachment.mimeType,
+              data: attachment.base64Data,
+            },
+          });
+        }
+      }
+
+      // 6. Execute API Call with Function Calling Tools
       const result = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         config: {
@@ -583,28 +931,48 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 listSummariesTool,
                 readDocumentTool,
                 updateCardTool,
+                sendSlackMessageTool,
+                webResearchTool,
                 listDriveFilesTool,
                 readDriveFileTool,
                 createDriveFileTool,
+                editDocumentTool,
+                moveToDriveFolderTool,
+                searchDriveFilesTool,
+                createFolderTool,
+                renameFileTool,
+                copyFileTool,
+                listFoldersTool,
               ],
             },
           ],
         },
         contents: [
           ...historyContents,
-          { role: 'user', parts: [{ text: userMsg.text }] },
+          { role: 'user', parts: currentMessageParts },
         ],
       });
 
-      // 6. Process the response - check for function calls
+      // 7. Process the response - check for function calls
       const createdCards: string[] = [];
+      const attemptedFunctionCalls: string[] = []; // Track what functions were called
       let summaryListResponse = '';
       let documentContentResponse = '';
+      let slackSendResponse = '';
+      let webResearchResponse = '';
       let driveListResponse = '';
       let driveReadResponse = '';
       let driveCreateResponse = '';
+      let driveEditResponse = '';
+      let driveMoveResponse = '';
+      let driveSearchResponse = '';
+      let driveCreateFolderResponse = '';
+      let driveRenameResponse = '';
+      let driveCopyResponse = '';
+      let driveFoldersResponse = '';
       let hasTextResponse = false;
       let textResponse = '';
+      let finishReason = result.candidates?.[0]?.finishReason || 'unknown';
 
       // Access the response candidates
       const candidates = result.candidates;
@@ -615,15 +983,83 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           // Check if this part is a function call
           if (part.functionCall) {
             const { name, args } = part.functionCall;
+            attemptedFunctionCalls.push(name); // Track this function call
 
             // --- DRIVE TOOLS ---
             if (name === 'list_drive_files') {
               try {
-                const files = await getDriveFiles(20); // List top 20
-                driveListResponse = `### 📂 Google Drive Files:\n` + 
-                  files.map((f: any) => `- [${f.name}](https://docs.google.com/document/d/${f.id}) (ID: ${f.id})`).join('\n');
+                const { folderId } = (args || {}) as { folderId?: string };
+                const files = await getDriveFiles(30, folderId); // List top 30
+                const formatFile = (f: any) => {
+                  const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+                  const icon = isFolder ? '📁' : (f.mimeType?.includes('image') ? '🖼️' : (f.mimeType?.includes('pdf') ? '📕' : '📄'));
+                  const link = isFolder ? `https://drive.google.com/drive/folders/${f.id}` : (f.webViewLink || `https://drive.google.com/file/d/${f.id}`);
+                  return `- ${icon} [${f.name}](${link}) (ID: \`${f.id}\`)`;
+                };
+                driveListResponse = `### 📂 Google Drive Files${folderId ? ` (Folder: ${folderId})` : ''}:\n` +
+                  files.map(formatFile).join('\n');
               } catch (err: any) {
                 driveListResponse = `Error listing Drive files: ${err.message}`;
+              }
+            }
+
+            if (name === 'search_drive_files' && args) {
+              const { query } = args as { query: string };
+              try {
+                const files = await searchDriveFiles(query, 20);
+                if (files.length === 0) {
+                  driveSearchResponse = `No files found matching "${query}"`;
+                } else {
+                  driveSearchResponse = `### 🔍 Search Results for "${query}":\n` +
+                    files.map((f: any) => `- [${f.name}](${f.webViewLink}) (ID: \`${f.id}\`)`).join('\n');
+                }
+              } catch (err: any) {
+                driveSearchResponse = `Error searching Drive: ${err.message}`;
+              }
+            }
+
+            if (name === 'create_folder' && args) {
+              const { folderName, parentFolderId } = args as { folderName: string; parentFolderId?: string };
+              try {
+                const folder = await createDriveFolder(folderName, parentFolderId);
+                driveCreateFolderResponse = `✅ Created folder: [${folder.name}](${folder.webViewLink}) (ID: \`${folder.id}\`)`;
+              } catch (err: any) {
+                driveCreateFolderResponse = `Error creating folder: ${err.message}`;
+              }
+            }
+
+            if (name === 'rename_file' && args) {
+              const { fileId, newName } = args as { fileId: string; newName: string };
+              try {
+                await renameFile(fileId, newName);
+                driveRenameResponse = `✅ Renamed file to "${newName}"`;
+              } catch (err: any) {
+                driveRenameResponse = `Error renaming file: ${err.message}`;
+              }
+            }
+
+            if (name === 'copy_file' && args) {
+              const { fileId, targetFolderId, newName } = args as { fileId: string; targetFolderId: string; newName?: string };
+              try {
+                const copy = await copyFileToFolder(fileId, targetFolderId, newName);
+                driveCopyResponse = `✅ Copied file: [${copy.name}](${copy.webViewLink}) (ID: \`${copy.id}\`)`;
+              } catch (err: any) {
+                driveCopyResponse = `Error copying file: ${err.message}`;
+              }
+            }
+
+            if (name === 'list_folders') {
+              try {
+                const { parentFolderId } = (args || {}) as { parentFolderId?: string };
+                const folders = await getDriveFolders(parentFolderId);
+                if (folders.length === 0) {
+                  driveFoldersResponse = 'No folders found.';
+                } else {
+                  driveFoldersResponse = `### 📁 Folders${parentFolderId ? ` in ${parentFolderId}` : ''}:\n` +
+                    folders.map((f: any) => `- 📁 ${f.name} (ID: \`${f.id}\`)`).join('\n');
+                }
+              } catch (err: any) {
+                driveFoldersResponse = `Error listing folders: ${err.message}`;
               }
             }
 
@@ -646,7 +1082,111 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 driveCreateResponse = `Error creating Google Doc: ${err.message}`;
               }
             }
+
+            // --- DOCUMENT EDITING TOOL ---
+            if (name === 'edit_document' && args) {
+              const { fileId, newContent, mode } = args as {
+                fileId: string;
+                newContent: string;
+                mode?: 'replace' | 'append';
+              };
+              try {
+                if (mode === 'append') {
+                  await appendToDocument(fileId, newContent);
+                  driveEditResponse = `✅ Appended content to document (ID: ${fileId})`;
+                } else {
+                  await updateDocumentContent(fileId, newContent);
+                  driveEditResponse = `✅ Replaced content in document (ID: ${fileId})`;
+                }
+                driveEditResponse += `\n\n[View Document](https://docs.google.com/document/d/${fileId})`;
+              } catch (err: any) {
+                driveEditResponse = `Error editing document: ${err.message}`;
+              }
+            }
+
+            // --- MOVE TO FOLDER TOOL ---
+            if (name === 'move_to_drive_folder' && args) {
+              const { fileId, targetFolderId, folderName } = args as {
+                fileId: string;
+                targetFolderId: string;
+                folderName?: string;
+              };
+              try {
+                // Use Google Drive API to move the file
+                const { accessToken } = await import('../authStore').then(m => m.useAuthStore.getState());
+                if (!accessToken) throw new Error('Not authenticated with Google');
+
+                const response = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${targetFolderId}&fields=id,name,parents`,
+                  {
+                    method: 'PATCH',
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
+
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error?.message || 'Failed to move file');
+                }
+
+                const result = await response.json();
+                driveMoveResponse = `✅ Moved "${result.name}" to ${folderName || 'target folder'}`;
+              } catch (err: any) {
+                driveMoveResponse = `Error moving file: ${err.message}`;
+              }
+            }
             // --- END DRIVE TOOLS ---
+
+            if (name === 'send_slack_message' && args) {
+              const { text } = args as { text: string };
+              try {
+                const result = await sendSlackMessage(text);
+                slackSendResponse = `✅ Sent Slack message to the configured channel.\n\n"${result.message || text}"`;
+              } catch (err: any) {
+                slackSendResponse = `Error sending Slack message: ${err.message}`;
+              }
+            }
+
+            if (name === 'web_research' && args) {
+              const { query, maxResults, searchDepth, topic, timeRange } = args as {
+                query: string;
+                maxResults?: number;
+                searchDepth?: 'basic' | 'advanced';
+                topic?: string;
+                timeRange?: string;
+              };
+              try {
+                const research = await runWebResearch({
+                  query,
+                  maxResults,
+                  searchDepth,
+                  topic,
+                  timeRange,
+                });
+                if (!research.results || research.results.length === 0) {
+                  webResearchResponse = `No results found for "${query}".`;
+                } else {
+                  const citations = research.results
+                    .map((result, index) => {
+                      const title = result.title || 'Untitled source';
+                      const content = result.content ? `\n   ${result.content}` : '';
+                      return `${index + 1}. [${title}](${result.url})${content}`;
+                    })
+                    .join('\n');
+
+                  webResearchResponse = `### 🌐 Web Research: ${research.query}\n\n`;
+                  if (research.answer) {
+                    webResearchResponse += `${research.answer}\n\n`;
+                  }
+                  webResearchResponse += `Sources:\n${citations}`;
+                }
+              } catch (err: any) {
+                webResearchResponse = `Error running web research: ${err.message}`;
+              }
+            }
 
             if (name === 'read_document' && args) {
               const { filename } = args as { filename: string };
@@ -776,19 +1316,51 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         }
       }
 
-      // 7. Build the response message
+      // 8. Build the response message
       let finalMessageParts = [];
-      
+
       if (documentContentResponse) finalMessageParts.push(documentContentResponse);
       if (summaryListResponse) finalMessageParts.push(summaryListResponse);
+      if (slackSendResponse) finalMessageParts.push(slackSendResponse);
+      if (webResearchResponse) finalMessageParts.push(webResearchResponse);
       if (driveListResponse) finalMessageParts.push(driveListResponse);
       if (driveReadResponse) finalMessageParts.push(driveReadResponse);
       if (driveCreateResponse) finalMessageParts.push(driveCreateResponse);
+      if (driveEditResponse) finalMessageParts.push(driveEditResponse);
+      if (driveMoveResponse) finalMessageParts.push(driveMoveResponse);
+      if (driveSearchResponse) finalMessageParts.push(driveSearchResponse);
+      if (driveCreateFolderResponse) finalMessageParts.push(driveCreateFolderResponse);
+      if (driveRenameResponse) finalMessageParts.push(driveRenameResponse);
+      if (driveCopyResponse) finalMessageParts.push(driveCopyResponse);
+      if (driveFoldersResponse) finalMessageParts.push(driveFoldersResponse);
       if (createdCards.length > 0) finalMessageParts.push(`✅ Created ${createdCards.length} card${createdCards.length > 1 ? 's' : ''} on your board:\n\n${createdCards.join('\n')}`);
       if (hasTextResponse && textResponse.trim()) finalMessageParts.push(textResponse);
       
       if (finalMessageParts.length === 0) {
-        finalMessageParts.push("I couldn't generate a response.");
+        // Provide more informative fallback based on what happened
+        let fallbackMessage = '';
+
+        if (attemptedFunctionCalls.length > 0) {
+          fallbackMessage = `I attempted to use the following tools: ${attemptedFunctionCalls.join(', ')}, but they didn't produce output. This might be because:\n\n`;
+          fallbackMessage += `• The requested action isn't supported by my available tools\n`;
+          fallbackMessage += `• I need more specific information to complete the action\n`;
+          fallbackMessage += `• There was an issue executing the function\n\n`;
+          fallbackMessage += `Could you please rephrase your request or provide more details?`;
+        } else if (finishReason === 'SAFETY') {
+          fallbackMessage = `I wasn't able to respond due to content safety filters. Could you rephrase your request?`;
+        } else if (finishReason === 'RECITATION') {
+          fallbackMessage = `I wasn't able to generate a response due to content policies. Could you try a different approach?`;
+        } else if (finishReason === 'MAX_TOKENS') {
+          fallbackMessage = `My response was cut off due to length limits. Could you ask a more specific question?`;
+        } else {
+          fallbackMessage = `I wasn't able to generate a response. This could be due to:\n\n`;
+          fallbackMessage += `• A temporary issue with the AI service\n`;
+          fallbackMessage += `• The request being outside my capabilities\n`;
+          fallbackMessage += `• Missing context or information\n\n`;
+          fallbackMessage += `Please try rephrasing your request or ask me what I can help with.`;
+        }
+
+        finalMessageParts.push(fallbackMessage);
       }
       
       const finalMessage = finalMessageParts.join('\n\n');
@@ -1014,7 +1586,7 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${ 
+                  className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-indigo-600 text-white rounded-br-none shadow-md'
                       : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none shadow-sm'
@@ -1022,6 +1594,28 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 >
                   {msg.role === 'model' && (
                     <Bot size={16} className="mb-1 text-indigo-500" />
+                  )}
+                  {/* Show attachments */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {msg.attachments.map((att, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                            msg.role === 'user'
+                              ? 'bg-indigo-500'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {att.type === 'image' ? (
+                            <Image size={10} />
+                          ) : (
+                            <FileText size={10} />
+                          )}
+                          <span className="truncate max-w-[80px]">{att.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                   <div className="whitespace-pre-wrap markdown-body">
                     {msg.text}
@@ -1042,7 +1636,40 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div ref={messagesEndRef} />
           </div>
           <div className="p-4 bg-white border-t border-gray-200">
+            {/* Pending Attachments Preview */}
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pendingAttachments.map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="relative group flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1 text-xs"
+                  >
+                    {attachment.type === 'image' ? (
+                      <Image size={12} className="text-blue-500" />
+                    ) : (
+                      <FileText size={12} className="text-orange-500" />
+                    )}
+                    <span className="truncate max-w-[100px]">{attachment.name}</span>
+                    <button
+                      onClick={() => removeAttachment(index)}
+                      className="ml-1 text-gray-400 hover:text-red-500"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="relative flex items-center">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.txt"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
               <input
                 type="text"
                 value={input}
@@ -1055,21 +1682,32 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       : isSpeaking
                         ? 'Gemini is speaking...'
                         : 'Starting...'
-                    : 'Ask for advice...'
+                    : pendingAttachments.length > 0
+                      ? 'Add a message or send...'
+                      : 'Ask for advice...'
                 }
                 disabled={isLoading || isConversationModeActive}
-                className="w-full pl-4 pr-20 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition-all shadow-sm disabled:bg-gray-100"
+                className="w-full pl-10 pr-20 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition-all shadow-sm disabled:bg-gray-100"
               />
+              {/* Attachment button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isConversationModeActive}
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 disabled:opacity-50 transition-colors"
+                title="Attach file (image, PDF, document)"
+              >
+                <Paperclip size={16} />
+              </button>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                 <button
                   onClick={handleToggleConversationMode}
                   disabled={isLoading}
-                  className={`p-1.5 rounded-md transition-colors ${ 
+                  className={`p-1.5 rounded-md transition-colors ${
                     isConversationModeActive
                       ? 'bg-red-100 text-red-600 hover:bg-red-200'
                       : 'text-gray-500 hover:text-indigo-600'
                   } border-2 border-red-500 bg-red-200`}
-                  title={ 
+                  title={
                     isConversationModeActive
                       ? 'Stop Conversation'
                       : 'Start Conversation'
@@ -1082,9 +1720,9 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   )}
                 </button>
                 <button
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={
-                    !input.trim() || isLoading || isConversationModeActive
+                    (!input.trim() && pendingAttachments.length === 0) || isLoading || isConversationModeActive
                   }
                   className="ml-1 p-1.5 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
@@ -1204,6 +1842,42 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               Add &quot;Do Not Use&quot; lists here to prevent Gemini from
               suggesting restricted vendors or tools.
             </p>
+          </div>
+
+          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-xs font-bold text-gray-500 uppercase mb-2">
+              Integrations Status
+            </div>
+            {integrationStatusError ? (
+              <p className="text-xs text-red-500">{integrationStatusError}</p>
+            ) : (
+              <div className="space-y-2 text-xs text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span>Slack (bot + channel)</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full ${
+                      integrationStatus?.slackConfigured
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {integrationStatus?.slackConfigured ? 'Connected' : 'Not configured'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Tavily Web Research</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full ${
+                      integrationStatus?.tavilyConfigured
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {integrationStatus?.tavilyConfigured ? 'Connected' : 'Not configured'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-gray-200">

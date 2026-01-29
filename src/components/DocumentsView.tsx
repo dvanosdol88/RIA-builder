@@ -11,6 +11,7 @@ export default function DocumentsView() {
     documents,
     isLoading,
     error,
+    uploadError,
     searchQuery,
     setSearchQuery,
     loadDocuments,
@@ -87,6 +88,24 @@ export default function DocumentsView() {
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (uploadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-md">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
+          <p className="text-red-700 font-medium mb-2">Upload Failed</p>
+          <p className="text-red-600 text-sm mb-4">{uploadError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Refresh & Try Again
           </button>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, ExternalLink } from 'lucide-react';
-import { getBlob, ref } from 'firebase/storage';
-import { storage } from '../firebaseConfig';
+import { X, Download, ExternalLink, FileText } from 'lucide-react';
+import { readGoogleDoc } from '../services/googleDriveService';
 import type { DocumentMeta } from '../documentStore';
 
 interface DocumentPreviewModalProps {
@@ -11,6 +10,7 @@ interface DocumentPreviewModalProps {
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 const TEXT_EXTENSIONS = ['txt', 'md', 'html'];
+const GOOGLE_DOCS_MIME = 'application/vnd.google-apps.document';
 
 export default function DocumentPreviewModal({
   doc,
@@ -21,21 +21,48 @@ export default function DocumentPreviewModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const isImage = IMAGE_EXTENSIONS.includes(doc.fileType);
+  // Check if this is a Google Doc (converted from PDF/Word)
+  const isGoogleDoc = doc.driveMimeType === GOOGLE_DOCS_MIME;
+  const isImage = !isGoogleDoc && IMAGE_EXTENSIONS.includes(doc.fileType);
   const isText = TEXT_EXTENSIONS.includes(doc.fileType);
   const isPdf = doc.fileType === 'pdf';
   const contextParts = [doc.page, doc.section, doc.tab].filter(Boolean);
   const tags = doc.tags ?? [];
 
+  // Get the appropriate URL for images stored in Google Drive
+  const getImageUrl = () => {
+    if (doc.driveFileId) {
+      // Use Google Drive's direct link format for images
+      return `https://drive.google.com/uc?export=view&id=${doc.driveFileId}`;
+    }
+    return doc.storageUrl;
+  };
+
   useEffect(() => {
     let isActive = true;
-    if (isText) {
+
+    // For Google Docs, fetch the text content
+    if (isGoogleDoc && doc.driveFileId) {
       setLoading(true);
       setLoadError(null);
-      const storagePath = `documents/${doc.id}-${doc.filename}`;
-      const storageRef = ref(storage, storagePath);
-      getBlob(storageRef)
-        .then((blob) => blob.text())
+      readGoogleDoc(doc.driveFileId)
+        .then((text) => {
+          if (!isActive) return;
+          setTextContent(text);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load Google Doc content:', err);
+          if (!isActive) return;
+          setLoadError('Preview unavailable. Click "Open in Google Docs" to view.');
+          setLoading(false);
+        });
+    }
+    // For plain text files (not converted), try to load from Drive
+    else if (isText && doc.driveFileId) {
+      setLoading(true);
+      setLoadError(null);
+      readGoogleDoc(doc.driveFileId)
         .then((text) => {
           if (!isActive) return;
           setTextContent(text);
@@ -48,10 +75,11 @@ export default function DocumentPreviewModal({
           setLoading(false);
         });
     }
+
     return () => {
       isActive = false;
     };
-  }, [doc, isText]);
+  }, [doc, isText, isGoogleDoc]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
@@ -128,15 +156,50 @@ export default function DocumentPreviewModal({
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 bg-slate-50 flex items-center justify-center">
+          {/* Google Docs (converted PDFs/Word docs) - show text preview with link to edit */}
+          {isGoogleDoc && (
+            <div className="w-full h-full flex flex-col">
+              <div className="mb-4 flex items-center justify-center gap-4">
+                <a
+                  href={doc.storageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  <FileText size={20} />
+                  Open in Google Docs
+                </a>
+                <span className="text-sm text-slate-500">
+                  (Editable by GenConsult)
+                </span>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-slate-200 p-6 overflow-auto">
+                {loading && (
+                  <div className="text-center text-slate-400">Loading preview...</div>
+                )}
+                {!loading && loadError && (
+                  <div className="text-center text-slate-500">{loadError}</div>
+                )}
+                {!loading && !loadError && textContent && (
+                  <pre className="whitespace-pre-wrap text-sm text-slate-700 font-mono">
+                    {textContent}
+                  </pre>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Images */}
           {isImage && (
             <img
-              src={doc.storageUrl}
+              src={getImageUrl()}
               alt={doc.filename}
               className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
             />
           )}
 
-          {isText && (
+          {/* Text files (not converted to Google Docs) */}
+          {isText && !isGoogleDoc && (
             <div className="w-full h-full bg-white rounded-lg border border-slate-200 p-6 overflow-auto">
               {loading && (
                 <div className="text-center text-slate-400">Loading...</div>
@@ -155,7 +218,8 @@ export default function DocumentPreviewModal({
             </div>
           )}
 
-          {isPdf && (
+          {/* PDFs (legacy - not converted) */}
+          {isPdf && !isGoogleDoc && (
             <iframe
               src={`${doc.storageUrl}#toolbar=0`}
               className="w-full h-full rounded-lg shadow-lg bg-white"
@@ -163,7 +227,8 @@ export default function DocumentPreviewModal({
             />
           )}
 
-          {!isImage && !isText && !isPdf && (
+          {/* Unknown file types */}
+          {!isImage && !isText && !isPdf && !isGoogleDoc && (
             <div className="text-center">
               <p className="text-slate-500 mb-4">
                 Preview not available for this file type.

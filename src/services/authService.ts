@@ -13,8 +13,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 // Set custom scopes
-provider.addScope('https://www.googleapis.com/auth/drive.file'); // Access to files created by the app
-provider.addScope('https://www.googleapis.com/auth/drive.readonly'); // Read-only access to other files
+provider.addScope('https://www.googleapis.com/auth/drive'); // Full access to Google Drive (read, write, delete, organize)
 provider.addScope('https://www.googleapis.com/auth/documents'); // Edit Google Docs
 
 

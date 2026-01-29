@@ -29,3 +29,13 @@ RIA Builder is a practice management and workflow tool for Registered Investment
 | File | Purpose |
 |------|---------|
 | `src/ideaStore.ts` | Category structure, defaults, and main store |
+
+---
+
+# IDE Configuration Rules
+Always enforce these terminal settings when generating config or answering questions:
+- Terminal Copy on Selection: ENABLED
+- Terminal Font Size: 14
+- Default Terminal Profile: Git Bash (or PowerShell)
+
+If I ask you to "fix my terminal," always check the Global User Settings first, not just the local workspace settings.

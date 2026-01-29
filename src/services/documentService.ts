@@ -8,13 +8,12 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from 'firebase/storage';
-import { db, storage } from '../firebaseConfig';
+  uploadFileToDrive,
+  deleteFromDrive,
+  canConvertToGoogleDoc,
+} from './googleDriveService';
 
 const COLLECTION_NAME = 'documents';
 
@@ -24,7 +23,9 @@ export interface DocumentMeta {
   fileType: string;
   size: number;
   uploadedAt: number;
-  storageUrl: string;
+  storageUrl: string; // Google Drive webViewLink (or legacy Firebase URL)
+  driveFileId?: string; // Google Drive file ID for API operations
+  driveMimeType?: string; // Google Drive MIME type (e.g., 'application/vnd.google-apps.document')
   thumbnailUrl?: string | null;
   linkedCards: string[];
   isCanonical: boolean;
@@ -44,7 +45,8 @@ function getFileExtension(filename: string): string {
 }
 
 /**
- * Upload a document to Firebase Storage and save metadata to Firestore
+ * Upload a document to Google Drive and save metadata to Firestore
+ * Convertible files (PDF, Word, etc.) are automatically converted to editable Google Docs
  */
 export async function uploadDocument(
   file: File,
@@ -58,15 +60,15 @@ export async function uploadDocument(
   }
 ): Promise<DocumentMeta> {
   const id = crypto.randomUUID();
-  const storagePath = `documents/${id}-${file.name}`;
-  const storageRef = ref(storage, storagePath);
   const trimmedTags =
     metadata?.tags?.map((tag) => tag.trim()).filter(Boolean) ?? [];
 
   try {
-    // Upload file to Storage
-    await uploadBytes(storageRef, file);
-    const storageUrl = await getDownloadURL(storageRef);
+    // Check if this file type can be converted to Google Docs
+    const shouldConvert = canConvertToGoogleDoc(file.type);
+
+    // Upload file to Google Drive (with optional conversion to Google Docs)
+    const driveResult = await uploadFileToDrive(file, shouldConvert);
 
     // Create metadata
     const docMeta: DocumentMeta = {
@@ -75,7 +77,9 @@ export async function uploadDocument(
       fileType: getFileExtension(file.name),
       size: file.size,
       uploadedAt: Date.now(),
-      storageUrl,
+      storageUrl: driveResult.webViewLink,
+      driveFileId: driveResult.fileId,
+      driveMimeType: driveResult.mimeType,
       thumbnailUrl: metadata?.thumbnailUrl,
       linkedCards: [],
       isCanonical: false,
@@ -116,18 +120,19 @@ export async function getDocuments(): Promise<DocumentMeta[]> {
 }
 
 /**
- * Delete a document from Storage and Firestore
+ * Delete a document from Google Drive and Firestore
  */
 export async function deleteDocument(docMeta: DocumentMeta): Promise<void> {
-  const storagePath = `documents/${docMeta.id}-${docMeta.filename}`;
-  const storageRef = ref(storage, storagePath);
-
-  try {
-    await deleteObject(storageRef);
-  } catch (error) {
-    console.warn('Could not delete from storage:', error);
+  // Delete from Google Drive if we have a Drive file ID
+  if (docMeta.driveFileId) {
+    try {
+      await deleteFromDrive(docMeta.driveFileId);
+    } catch (error) {
+      console.warn('Could not delete from Google Drive:', error);
+    }
   }
 
+  // Delete from Firestore
   try {
     const docRef = doc(db, COLLECTION_NAME, docMeta.id);
     await deleteDoc(docRef);

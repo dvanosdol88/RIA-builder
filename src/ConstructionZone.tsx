@@ -30,6 +30,8 @@ import {
   Cpu,
   Scale,
   Map,
+  Menu,
+  X,
 } from 'lucide-react';
 import GeminiSidebar from './components/GeminiSidebar';
 import CollapsibleSection from './components/CollapsibleSection';
@@ -121,6 +123,7 @@ export default function ConstructionZone() {
   const [newItemText, setNewItemText] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Custom pages state
   const [isAddingPage, setIsAddingPage] = useState(false);
@@ -465,21 +468,275 @@ export default function ConstructionZone() {
     );
   };
 
+  const renderSidebarContent = () => (
+    <nav className="h-full flex flex-col pt-6 pb-4 overflow-y-auto no-scrollbar overflow-x-hidden">
+      {/* Page Navigation (only in construction view) */}
+      {activeView === 'construction' && (
+        <div className="space-y-1 px-3 flex-1">
+          {currentPages.map((page) => {
+            const isCustom = isCustomPage(activeTab, page);
+            const isEditing = editingPageName === page;
+
+            // Render rename input for custom pages being edited
+            if (isEditing) {
+              return (
+                <div
+                  key={page}
+                  className="space-y-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm"
+                >
+                  <input
+                    ref={editPageInputRef}
+                    type="text"
+                    value={editPageValue}
+                    onChange={(e) => setEditPageValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey)
+                        handleConfirmRenamePage();
+                      if (e.key === 'Escape') handleCancelRenamePage();
+                    }}
+                    maxLength={PAGE_NAME_MAX_LENGTH}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Page name..."
+                  />
+                  <textarea
+                    value={editPageDescription}
+                    onChange={(e) => setEditPageDescription(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') handleCancelRenamePage();
+                    }}
+                    maxLength={PAGE_DESCRIPTION_MAX_LENGTH}
+                    rows={2}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Description (optional)..."
+                  />
+                  {editPageError && (
+                    <p className="text-xs text-red-500 px-1">
+                      {editPageError}
+                    </p>
+                  )}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={handleCancelRenamePage}
+                      className="flex-1 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmRenamePage}
+                      className="flex-1 px-2 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Render normal page button
+            return (
+              <div
+                key={page}
+                draggable={!isAddingPage && !editingPageName}
+                onDragStart={(e) => handleDragStart(e, page)}
+                onDragOver={(e) => handleDragOver(e, page)}
+                onDragLeave={() => setDragOverPage(null)}
+                onDrop={(e) => handleDrop(e, page)}
+                className={`group relative flex items-center rounded-lg transition-all ${
+                  activePage === page
+                    ? 'bg-white shadow-sm border border-gray-200'
+                    : 'hover:bg-gray-100'
+                } ${draggedPage === page ? 'opacity-40' : 'opacity-100'} ${
+                  dragOverPage === page
+                    ? 'border-t-2 border-t-blue-500'
+                    : ''
+                }`}
+              >
+                {/* Drag Handle */}
+                <div className="pl-2 text-gray-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity">
+                  <GripVertical size={14} />
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActivePage(page);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex-1 text-left px-2 py-2.5 text-sm font-medium transition-all flex items-center justify-between ${
+                    activePage === page ? 'text-blue-700' : 'text-gray-600'
+                  }`}
+                >
+                  <span className="truncate">{page}</span>
+                  <span
+                    className={`text-[10px] ml-2 px-1.5 py-0.5 rounded-full ${
+                      activePage === page
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    {
+                      ideas.filter(
+                        (i) =>
+                          i.category === activeTab &&
+                          i.subcategory === page &&
+                          i.stage !== 'archived'
+                      ).length
+                    }
+                  </span>
+                </button>
+
+                {/* Edit/Delete buttons for custom pages */}
+                {isCustom && (
+                  <div className="absolute right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartRenamePage(page);
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      title="Rename page"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartDeletePage(page);
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      title="Delete page"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add Page Input */}
+          {isAddingPage ? (
+            <div className="space-y-2 mt-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <input
+                ref={addPageInputRef}
+                type="text"
+                value={newPageName}
+                onChange={(e) => setNewPageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey)
+                    handleConfirmAddPage();
+                  if (e.key === 'Escape') handleCancelAddPage();
+                }}
+                maxLength={PAGE_NAME_MAX_LENGTH}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Page name..."
+              />
+              <textarea
+                value={newPageDescription}
+                onChange={(e) => setNewPageDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') handleCancelAddPage();
+                }}
+                maxLength={PAGE_DESCRIPTION_MAX_LENGTH}
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="Description (optional)..."
+              />
+              {newPageError && (
+                <p className="text-xs text-red-500 px-1">{newPageError}</p>
+              )}
+              <div className="flex gap-1">
+                <button
+                  onClick={handleCancelAddPage}
+                  className="flex-1 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAddPage}
+                  className="flex-1 px-2 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleStartAddPage}
+              className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg flex items-center gap-2 mt-2"
+            >
+              <Plus size={16} />
+              Add Page
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Spacer for non-construction views */}
+      {activeView !== 'construction' && <div className="flex-1" />}
+
+      {/* Utility Tabs Section */}
+      <div className="px-3 py-3 border-t border-b border-gray-200 mt-4 space-y-1">
+        {[
+          { id: 'outline', label: 'Outline', icon: List },
+          { id: 'todo', label: 'To Do', icon: CheckSquare },
+          { id: 'preLaunchChecklist', label: 'Pre-Launch', icon: Rocket },
+          { id: 'ideaHopper', label: 'Idea Hopper', icon: Lightbulb },
+          { id: 'documents', label: 'Documents', icon: FolderOpen },
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setActiveView(item.id as ActiveView);
+              setMobileSidebarOpen(false);
+            }}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              activeView === item.id
+                ? 'bg-white shadow-sm text-blue-700 border border-gray-200'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <item.icon size={16} />
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Build Stats */}
+      <div className="px-6 pt-4 mx-3">
+        <div className="text-xs text-gray-400 mb-2">Build Stats</div>
+        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-500 w-1/4"></div>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <span>Setup</span>
+          <span>25%</span>
+        </div>
+      </div>
+    </nav>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-white text-slate-800 font-sans">
       {/* Lighter Top Navbar */}
       <header className="bg-slate-500 text-white py-0 flex items-center justify-between shadow-md z-20">
         <div className="flex items-center overflow-x-auto no-scrollbar">
-          <div className="font-bold text-lg py-4 w-52 shrink-0 pl-6 border-r border-slate-400 whitespace-nowrap">
+          <div className="font-bold text-lg py-4 w-52 shrink-0 pl-6 border-r border-slate-400 whitespace-nowrap flex items-center">
+            {/* Hamburger Menu - Mobile Only */}
+            <button
+              className="md:hidden p-2 text-white hover:bg-slate-600 rounded-lg mr-2"
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            >
+              {mobileSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
             RIA Builder
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto flex-nowrap scrollbar-hide">
             {/* Only Category Tabs in Top Nav */}
             {(Object.keys(CATEGORY_STRUCTURE) as Category[]).map((key) => (
               <button
                 key={key}
                 onClick={() => handleTabChange(key)}
-                className={`px-4 py-4 text-sm font-medium transition-colors border-b-4 ${
+                className={`px-4 py-4 text-sm font-medium transition-colors border-b-4 whitespace-nowrap flex-shrink-0 ${
                   activeView === 'construction' && activeTab === key
                     ? 'border-blue-400 text-white bg-slate-600'
                     : 'border-transparent text-slate-200 hover:text-white hover:bg-slate-600'
@@ -500,7 +757,7 @@ export default function ConstructionZone() {
             <input
               type="text"
               placeholder="Search everything..."
-              className="bg-slate-600 border-none rounded-full pl-9 pr-4 py-2 text-sm text-white placeholder-slate-300 focus:ring-1 focus:ring-blue-400 w-64 transition-all"
+              className="bg-slate-600 border-none rounded-full pl-9 pr-4 py-2 text-sm text-white placeholder-slate-300 focus:ring-1 focus:ring-blue-400 w-40 md:w-64 transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

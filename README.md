@@ -56,6 +56,34 @@ The **GenConsult** AI agent in the sidebar is equipped with advanced tools:
 - **`create_google_doc`**: Generates new documents (plans, summaries, drafts) and saves them to your Drive.
 - **`list_drive_files`**: Browses your Drive to find relevant information.
 - **`create_card` / `update_card`**: Manages the project board directly.
+- **`send_slack_message`**: Posts updates to the configured Slack channel.
+- **`web_research`**: Runs web research queries and returns summarized results with citations.
+
+## Backend Setup (Secrets)
+
+These tools require server-side secrets and config. Do NOT put secrets in frontend code.
+
+1. **Slack bot token (server-side secret):**
+   ```bash
+   firebase functions:secrets:set SLACK_BOT_TOKEN
+   ```
+2. **Allowed Slack channel (config):**
+   ```bash
+   firebase functions:config:set genconsult.slack_channel_id="C0123456789"
+   ```
+3. **Tavily API key (server-side secret):**
+   ```bash
+   firebase functions:secrets:set TAVILY_API_KEY
+   ```
+4. **Deploy functions:**
+   ```bash
+   cd functions
+   npm run build
+   firebase deploy --only functions
+   ```
+
+Once deployed, the Settings tab shows integration status via the
+`integrationStatus` function endpoint.
 
 ## Testing
 
