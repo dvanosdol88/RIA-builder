@@ -287,7 +287,7 @@ export default function IdeaHopperCard({
   return (
     <div
       onClick={() => onSelect(idea.id)}
-      className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 p-4 transition-all cursor-pointer group max-h-[320px] overflow-hidden flex flex-col"
+      className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 p-4 transition-all cursor-pointer group h-[280px] flex flex-col"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -517,8 +517,8 @@ export default function IdeaHopperCard({
         )}
       </div>
 
-      {/* Editable Tags */}
-      <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+      {/* Editable Tags - flex-1 to take remaining space */}
+      <div className="mb-3 flex-1 min-h-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {isEditingTags ? (
           <div className="space-y-2">
             {/* Current tags with remove buttons */}
@@ -617,8 +617,8 @@ export default function IdeaHopperCard({
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+      {/* Footer - pinned to bottom */}
+      <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-auto flex-shrink-0">
         <div className="flex items-center gap-1.5 text-xs text-slate-400">
           <Clock size={12} />
           {formattedDate}

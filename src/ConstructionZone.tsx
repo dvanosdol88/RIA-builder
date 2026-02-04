@@ -467,47 +467,50 @@ export default function ConstructionZone() {
 
   return (
     <div className="h-screen flex flex-col bg-white text-slate-800 font-sans">
-      {/* Lighter Top Navbar */}
+      {/* Lighter Top Navbar - Responsive */}
       <header className="bg-slate-500 text-white py-0 flex items-center justify-between shadow-md z-20">
         <div className="flex items-center overflow-x-auto no-scrollbar">
-          <div className="font-bold text-lg py-4 w-52 shrink-0 pl-6 border-r border-slate-400 whitespace-nowrap">
-            RIA Builder
+          <div className="font-bold text-lg py-4 w-auto md:w-52 shrink-0 pl-4 md:pl-6 pr-4 md:border-r border-slate-400 whitespace-nowrap">
+            <span className="hidden sm:inline">RIA Builder</span>
+            <span className="sm:hidden">RIA</span>
           </div>
-          <div className="flex gap-1">
-            {/* Only Category Tabs in Top Nav */}
+          <div className="flex gap-0.5 md:gap-1">
+            {/* Only Category Tabs in Top Nav - Responsive: icons only on mobile */}
             {(Object.keys(CATEGORY_STRUCTURE) as Category[]).map((key) => (
               <button
                 key={key}
                 onClick={() => handleTabChange(key)}
-                className={`px-4 py-4 text-sm font-medium transition-colors border-b-4 ${
+                className={`px-2 sm:px-3 md:px-4 py-4 text-sm font-medium transition-colors border-b-4 min-h-[56px] ${
                   activeView === 'construction' && activeTab === key
                     ? 'border-blue-400 text-white bg-slate-600'
                     : 'border-transparent text-slate-200 hover:text-white hover:bg-slate-600'
                 }`}
+                title={CATEGORY_STRUCTURE[key].label}
               >
-                <span className="mr-2">
+                <span className="md:mr-2">
                   <CategoryIcon category={key} />
                 </span>
-                {CATEGORY_STRUCTURE[key].label}
+                <span className="hidden md:inline">{CATEGORY_STRUCTURE[key].label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-4 py-2 pr-6">
-          <div className="relative">
+        <div className="flex items-center gap-2 md:gap-4 py-2 pr-3 md:pr-6">
+          {/* Search - hidden on mobile */}
+          <div className="relative hidden sm:block">
             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-300" />
             <input
               type="text"
               placeholder="Search everything..."
-              className="bg-slate-600 border-none rounded-full pl-9 pr-4 py-2 text-sm text-white placeholder-slate-300 focus:ring-1 focus:ring-blue-400 w-64 transition-all"
+              className="bg-slate-600 border-none rounded-full pl-9 pr-4 py-2 text-sm text-white placeholder-slate-300 focus:ring-1 focus:ring-blue-400 w-40 lg:w-64 transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <button
             onClick={() => setGeminiOpen(!geminiOpen)}
-            className={`p-2 rounded-full transition-colors ai-glow text-white`}
+            className={`p-2.5 md:p-2 rounded-full transition-colors ai-glow text-white min-w-[44px] min-h-[44px] flex items-center justify-center`}
           >
             <Sparkles className="w-5 h-5" />
           </button>
@@ -801,7 +804,7 @@ export default function ConstructionZone() {
         {/* Main Content Area */}
         {/* Show Documents View */}
         {activeView === 'documents' && (
-          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 px-4 sm:px-6 md:px-8">
             <DocumentsView />
           </main>
         )}
@@ -815,7 +818,7 @@ export default function ConstructionZone() {
 
         {/* Show To Do View */}
         {activeView === 'todo' && (
-          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 px-4 sm:px-6 md:px-8">
             <TodoView />
           </main>
         )}
@@ -829,7 +832,7 @@ export default function ConstructionZone() {
 
         {/* Show Outline View */}
         {activeView === 'outline' && (
-          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 px-4 sm:px-6 md:px-8">
             <OutlineView
               onNavigate={(category, page) => {
                 setActiveTab(category);
@@ -842,7 +845,7 @@ export default function ConstructionZone() {
 
         {/* Show Construction Zone */}
         {activeView === 'construction' && (
-          <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
+          <main className="flex-1 overflow-y-auto metallic-gradient py-4 px-4 sm:px-6 md:px-8">
             <div className="max-w-4xl">
               {/* Category Header Section */}
               <div className="mb-2">

@@ -54,3 +54,35 @@
     scrollbar-width: none;
   }
 }
+
+/* Mobile-friendly touch improvements */
+@layer utilities {
+  /* Ensure minimum touch target size (44px per Apple/Google guidelines) */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Disable text selection on interactive elements for cleaner touch experience */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Safe area handling for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Smooth transitions for mobile interactions */
+@media (prefers-reduced-motion: no-preference) {
+  .transition-mobile {
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  }
+}

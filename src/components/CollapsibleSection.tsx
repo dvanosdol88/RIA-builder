@@ -26,7 +26,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left px-4 py-3 flex items-center justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded-t-lg"
+        className="w-full text-left px-3 sm:px-4 py-4 sm:py-3 flex items-center justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded-t-lg min-h-[56px]"
       >
         <div className="flex items-center gap-3">
           <div className="bg-white/50 p-1.5 rounded-lg group-hover:bg-white/80 transition-colors">
@@ -55,9 +55,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </button>
 
       {isOpen && (
-        <div className="px-6 pb-6 animate-in slide-in-from-top-2 fade-in duration-200">
+        <div className="px-3 sm:px-6 pb-4 sm:pb-6 animate-in slide-in-from-top-2 fade-in duration-200">
           {/* Grid layout for Kanban cards - responsive for approx 2 rows depending on screen */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-3">
             {children}
           </div>
         </div>

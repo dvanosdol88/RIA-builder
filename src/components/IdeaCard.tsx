@@ -50,10 +50,10 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
 
   return (
     <div
-      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-1 ${!isExpanded ? 'max-h-[320px] overflow-hidden' : ''} flex flex-col ${idea.type === 'question' ? 'border-orange-400' : 'border-blue-500'}`}
+      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-1 ${!isExpanded ? 'h-[280px]' : ''} flex flex-col ${idea.type === 'question' ? 'border-orange-400' : 'border-blue-500'}`}
     >
       <div className="flex justify-between items-start gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex items-center gap-2 mb-1">
             {idea.type === 'question' ? (
               <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -96,8 +96,8 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
             </div>
           )}
 
-          {/* URLs Preview */}
-          <div className="mb-2">
+          {/* URLs Preview - takes remaining space */}
+          <div className="flex-1 min-h-0 overflow-hidden">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
               URLs
             </p>
@@ -131,7 +131,7 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea }) => {
         </button>
       </div>
 
-      <div className="mt-auto pt-2 flex items-center justify-between">
+      <div className="mt-auto pt-2 flex items-center justify-between flex-shrink-0">
         <div className="flex-1"></div>
 
         <div className="flex items-center gap-2">

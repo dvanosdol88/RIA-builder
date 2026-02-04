@@ -70,7 +70,7 @@ export default function TodoCard({
   return (
     <div
       onClick={() => onEdit(todo.id)}
-      className={`bg-white border rounded-lg shadow-sm hover:shadow-md p-4 transition-all cursor-pointer group max-h-[320px] overflow-hidden flex flex-col ${
+      className={`bg-white border rounded-lg shadow-sm hover:shadow-md p-4 transition-all cursor-pointer group h-[180px] flex flex-col ${
         todo.completed
           ? 'border-slate-200 opacity-60'
           : 'border-slate-200 hover:border-slate-300'
@@ -90,10 +90,10 @@ export default function TodoCard({
         </button>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex items-start justify-between gap-2">
             <p
-              className={`font-medium leading-snug line-clamp-4 ${
+              className={`font-medium leading-snug line-clamp-2 ${
                 todo.completed
                   ? 'text-slate-400 line-through'
                   : 'text-slate-900'
@@ -112,13 +112,13 @@ export default function TodoCard({
           </div>
 
           {todo.description && (
-            <p className="text-slate-500 text-sm mt-1 line-clamp-2">
+            <p className="text-slate-500 text-sm mt-1 line-clamp-2 flex-1">
               {todo.description}
             </p>
           )}
 
-          {/* Footer */}
-          <div className="flex items-center gap-3 mt-3">
+          {/* Footer - pinned to bottom */}
+          <div className="flex items-center gap-3 mt-auto pt-2 flex-shrink-0">
             {/* Priority */}
             <span
               className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${priorityConfig.bgColor} ${priorityConfig.color}`}
