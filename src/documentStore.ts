@@ -10,6 +10,8 @@ interface DocumentStore {
   error: string | null;
   uploadError: string | null;
   searchQuery: string;
+  selectedTags: string[];
+  selectedFileTypes: string[];
 
   // Actions
   setSearchQuery: (query: string) => void;
@@ -29,12 +31,17 @@ interface DocumentStore {
   toggleCanonical: (id: string) => Promise<void>;
   linkToCard: (docId: string, cardId: string) => Promise<void>;
   unlinkFromCard: (docId: string, cardId: string) => Promise<void>;
+  toggleTagFilter: (tag: string) => void;
+  toggleFileTypeFilter: (fileType: string) => void;
+  clearFilters: () => void;
 
   // Computed getters
   getCanonicalDocuments: () => DocumentMeta[];
   getFilteredDocuments: () => DocumentMeta[];
   getNonCanonicalDocuments: () => DocumentMeta[];
   getRecentTags: (limit?: number) => string[];
+  getAllTags: () => { tag: string; count: number }[];
+  getAllFileTypes: () => { type: string; count: number }[];
 }
 
 export const useDocumentStore = create<DocumentStore>()((set, get) => ({
@@ -43,6 +50,8 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
   error: null,
   uploadError: null,
   searchQuery: '',
+  selectedTags: [],
+  selectedFileTypes: [],
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 
@@ -169,8 +178,28 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
     }
   },
 
+  toggleTagFilter: (tag) => {
+    set((state) => ({
+      selectedTags: state.selectedTags.includes(tag)
+        ? state.selectedTags.filter((t) => t !== tag)
+        : [...state.selectedTags, tag],
+    }));
+  },
+
+  toggleFileTypeFilter: (fileType) => {
+    set((state) => ({
+      selectedFileTypes: state.selectedFileTypes.includes(fileType)
+        ? state.selectedFileTypes.filter((t) => t !== fileType)
+        : [...state.selectedFileTypes, fileType],
+    }));
+  },
+
+  clearFilters: () => {
+    set({ selectedTags: [], selectedFileTypes: [] });
+  },
+
   getCanonicalDocuments: () => {
-    const { documents, searchQuery } = get();
+    const { documents, searchQuery, selectedTags, selectedFileTypes } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
@@ -183,11 +212,21 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
             )
           : true
       )
+      .filter((d) =>
+        selectedTags.length > 0
+          ? selectedTags.some((tag) => (d.tags ?? []).includes(tag))
+          : true
+      )
+      .filter((d) =>
+        selectedFileTypes.length > 0
+          ? selectedFileTypes.includes(d.fileType)
+          : true
+      )
       .sort((a, b) => b.uploadedAt - a.uploadedAt);
   },
 
   getNonCanonicalDocuments: () => {
-    const { documents, searchQuery } = get();
+    const { documents, searchQuery, selectedTags, selectedFileTypes } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
@@ -200,11 +239,21 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
             )
           : true
       )
+      .filter((d) =>
+        selectedTags.length > 0
+          ? selectedTags.some((tag) => (d.tags ?? []).includes(tag))
+          : true
+      )
+      .filter((d) =>
+        selectedFileTypes.length > 0
+          ? selectedFileTypes.includes(d.fileType)
+          : true
+      )
       .sort((a, b) => b.uploadedAt - a.uploadedAt);
   },
 
   getFilteredDocuments: () => {
-    const { documents, searchQuery } = get();
+    const { documents, searchQuery, selectedTags, selectedFileTypes } = get();
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalize = (value?: string | null) => (value ?? '').toLowerCase();
     return documents
@@ -216,8 +265,19 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
             )
           : true
       )
+      .filter((d) =>
+        selectedTags.length > 0
+          ? selectedTags.some((tag) => (d.tags ?? []).includes(tag))
+          : true
+      )
+      .filter((d) =>
+        selectedFileTypes.length > 0
+          ? selectedFileTypes.includes(d.fileType)
+          : true
+      )
       .sort((a, b) => b.uploadedAt - a.uploadedAt);
   },
+
   getRecentTags: (limit = 8) => {
     const { documents } = get();
     const ordered = [...documents].sort((a, b) => b.uploadedAt - a.uploadedAt);
@@ -236,5 +296,30 @@ export const useDocumentStore = create<DocumentStore>()((set, get) => ({
     }
 
     return tags;
+  },
+
+  getAllTags: () => {
+    const { documents } = get();
+    const tagCounts = new Map<string, number>();
+    for (const doc of documents) {
+      for (const tag of doc.tags ?? []) {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      }
+    }
+    return Array.from(tagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count);
+  },
+
+  getAllFileTypes: () => {
+    const { documents } = get();
+    const typeCounts = new Map<string, number>();
+    for (const doc of documents) {
+      const ft = doc.fileType || 'other';
+      typeCounts.set(ft, (typeCounts.get(ft) || 0) + 1);
+    }
+    return Array.from(typeCounts.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
   },
 }));

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Upload, Loader2, AlertCircle, FolderOpen, Camera } from 'lucide-react';
+import { Search, Upload, Loader2, AlertCircle, FolderOpen, Camera, Filter } from 'lucide-react';
 import { useDocumentStore, DocumentMeta } from '../documentStore';
 import DocumentCard from './DocumentCard';
 import DocumentPreviewModal from './DocumentPreviewModal';
@@ -21,6 +21,9 @@ export default function DocumentsView() {
     getCanonicalDocuments,
     getNonCanonicalDocuments,
     getRecentTags,
+    selectedTags,
+    selectedFileTypes,
+    clearFilters,
   } = useDocumentStore();
 
   const [previewDoc, setPreviewDoc] = useState<DocumentMeta | null>(null);
@@ -172,6 +175,26 @@ export default function DocumentsView() {
             className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
           />
         </div>
+
+        {/* Active filters banner */}
+        {(selectedTags.length > 0 || selectedFileTypes.length > 0) && (
+          <div className="flex items-center gap-2 mb-6 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+            <Filter size={14} className="text-blue-500 shrink-0" />
+            <span className="text-sm text-blue-700">
+              Filtering by{' '}
+              {[
+                ...selectedTags.map((t) => `"${t}"`),
+                ...selectedFileTypes.map((t) => `.${t}`),
+              ].join(', ')}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="ml-auto text-xs text-blue-500 hover:text-blue-700 font-medium whitespace-nowrap"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
 
         {noResults && (
           <div className="text-center py-12">

@@ -43,6 +43,54 @@ import OutlineView from './components/OutlineView';
 import PreLaunchChecklistView from './components/PreLaunchChecklistView';
 import Auth from './components/Auth';
 import ResizableSidebar from './components/ResizableSidebar';
+import MapsView from './components/MapsView';
+import { useDocumentStore } from './documentStore';
+import { Tag, FileType, XCircle } from 'lucide-react';
+
+// Deterministic color assignment for tag pills
+const TAG_PILL_COLORS = [
+  { bg: 'bg-blue-100', text: 'text-blue-700', activeBg: 'bg-blue-600', border: 'border-blue-200' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-700', activeBg: 'bg-emerald-600', border: 'border-emerald-200' },
+  { bg: 'bg-purple-100', text: 'text-purple-700', activeBg: 'bg-purple-600', border: 'border-purple-200' },
+  { bg: 'bg-pink-100', text: 'text-pink-700', activeBg: 'bg-pink-600', border: 'border-pink-200' },
+  { bg: 'bg-amber-100', text: 'text-amber-700', activeBg: 'bg-amber-600', border: 'border-amber-200' },
+  { bg: 'bg-teal-100', text: 'text-teal-700', activeBg: 'bg-teal-600', border: 'border-teal-200' },
+  { bg: 'bg-rose-100', text: 'text-rose-700', activeBg: 'bg-rose-600', border: 'border-rose-200' },
+  { bg: 'bg-indigo-100', text: 'text-indigo-700', activeBg: 'bg-indigo-600', border: 'border-indigo-200' },
+  { bg: 'bg-cyan-100', text: 'text-cyan-700', activeBg: 'bg-cyan-600', border: 'border-cyan-200' },
+  { bg: 'bg-orange-100', text: 'text-orange-700', activeBg: 'bg-orange-600', border: 'border-orange-200' },
+];
+
+function getTagColor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TAG_PILL_COLORS[Math.abs(hash) % TAG_PILL_COLORS.length];
+}
+
+const FILE_TYPE_COLORS: Record<string, { bg: string; text: string; activeBg: string; border: string }> = {
+  pdf: { bg: 'bg-red-100', text: 'text-red-700', activeBg: 'bg-red-600', border: 'border-red-200' },
+  jpg: { bg: 'bg-sky-100', text: 'text-sky-700', activeBg: 'bg-sky-600', border: 'border-sky-200' },
+  jpeg: { bg: 'bg-sky-100', text: 'text-sky-700', activeBg: 'bg-sky-600', border: 'border-sky-200' },
+  png: { bg: 'bg-sky-100', text: 'text-sky-700', activeBg: 'bg-sky-600', border: 'border-sky-200' },
+  gif: { bg: 'bg-sky-100', text: 'text-sky-700', activeBg: 'bg-sky-600', border: 'border-sky-200' },
+  webp: { bg: 'bg-sky-100', text: 'text-sky-700', activeBg: 'bg-sky-600', border: 'border-sky-200' },
+  doc: { bg: 'bg-blue-100', text: 'text-blue-700', activeBg: 'bg-blue-600', border: 'border-blue-200' },
+  docx: { bg: 'bg-blue-100', text: 'text-blue-700', activeBg: 'bg-blue-600', border: 'border-blue-200' },
+  xls: { bg: 'bg-green-100', text: 'text-green-700', activeBg: 'bg-green-600', border: 'border-green-200' },
+  xlsx: { bg: 'bg-green-100', text: 'text-green-700', activeBg: 'bg-green-600', border: 'border-green-200' },
+  csv: { bg: 'bg-green-100', text: 'text-green-700', activeBg: 'bg-green-600', border: 'border-green-200' },
+  txt: { bg: 'bg-slate-100', text: 'text-slate-700', activeBg: 'bg-slate-600', border: 'border-slate-200' },
+  md: { bg: 'bg-slate-100', text: 'text-slate-700', activeBg: 'bg-slate-600', border: 'border-slate-200' },
+  html: { bg: 'bg-orange-100', text: 'text-orange-700', activeBg: 'bg-orange-600', border: 'border-orange-200' },
+};
+
+const DEFAULT_FILE_TYPE_COLOR = { bg: 'bg-gray-100', text: 'text-gray-600', activeBg: 'bg-gray-600', border: 'border-gray-200' };
+
+function getFileTypeColor(fileType: string) {
+  return FILE_TYPE_COLORS[fileType] || DEFAULT_FILE_TYPE_COLOR;
+}
 
 type ActiveView =
   | 'construction'
@@ -108,6 +156,17 @@ export default function ConstructionZone() {
     reorderPages,
   } = useIdeaStore();
 
+  const {
+    selectedTags,
+    selectedFileTypes,
+    toggleTagFilter,
+    toggleFileTypeFilter,
+    clearFilters,
+    getAllTags,
+    getAllFileTypes,
+    documents: allDocuments,
+  } = useDocumentStore();
+
   const [activeView, setActiveView] = useState<ActiveView>('construction');
   const [activeTab, setActiveTab] = useState<Category>('A');
 
@@ -124,6 +183,8 @@ export default function ConstructionZone() {
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const newItemInputRef = useRef<HTMLInputElement>(null);
 
   // Custom pages state
   const [isAddingPage, setIsAddingPage] = useState(false);
@@ -152,6 +213,8 @@ export default function ConstructionZone() {
     // Reset any add/edit states
     setIsAddingPage(false);
     setEditingPageName(null);
+    setIsAddingItem(false);
+    setNewItemText('');
   };
 
   // Get pages for the current category (default + custom)
@@ -374,6 +437,17 @@ export default function ConstructionZone() {
       notes: [],
     });
 
+    setNewItemText('');
+    setIsAddingItem(false);
+  };
+
+  const handleStartAddItem = () => {
+    setIsAddingItem(true);
+    setTimeout(() => newItemInputRef.current?.focus(), 0);
+  };
+
+  const handleCancelAddItem = () => {
+    setIsAddingItem(false);
     setNewItemText('');
   };
 
@@ -671,8 +745,96 @@ export default function ConstructionZone() {
         </div>
       )}
 
-      {/* Spacer for non-construction views */}
-      {activeView !== 'construction' && <div className="flex-1" />}
+      {/* Documents filter panel (mobile) */}
+      {activeView === 'documents' && (() => {
+        const allTags = getAllTags();
+        const allTypes = getAllFileTypes();
+        const hasFilters = selectedTags.length > 0 || selectedFileTypes.length > 0;
+
+        return (
+          <div className="flex-1 px-3 space-y-5 overflow-y-auto no-scrollbar">
+            {hasFilters && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {selectedTags.length + selectedFileTypes.length} filter{selectedTags.length + selectedFileTypes.length !== 1 ? 's' : ''} active
+                </span>
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
+                >
+                  <XCircle size={12} />
+                  Clear
+                </button>
+              </div>
+            )}
+            {allTags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Tag size={12} className="text-gray-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tags</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.map(({ tag, count }) => {
+                    const isSelected = selectedTags.includes(tag);
+                    const color = getTagColor(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTagFilter(tag)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                          isSelected
+                            ? `${color.activeBg} text-white border-transparent shadow-sm`
+                            : `${color.bg} ${color.text} ${color.border} hover:shadow-sm`
+                        }`}
+                      >
+                        {tag}
+                        <span className={`text-[9px] ${isSelected ? 'text-white/70' : 'opacity-50'}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {allTypes.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FileType size={12} className="text-gray-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">File Type</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allTypes.map(({ type, count }) => {
+                    const isSelected = selectedFileTypes.includes(type);
+                    const color = getFileTypeColor(type);
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => toggleFileTypeFilter(type)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                          isSelected
+                            ? `${color.activeBg} text-white border-transparent shadow-sm`
+                            : `${color.bg} ${color.text} ${color.border} hover:shadow-sm`
+                        }`}
+                      >
+                        .{type}
+                        <span className={`text-[9px] ${isSelected ? 'text-white/70' : 'opacity-50'}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {allTags.length === 0 && allTypes.length === 0 && (
+              <div className="text-center py-8">
+                <Tag size={24} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">Upload documents with tags to see filters here</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Spacer for other non-construction views */}
+      {activeView !== 'construction' && activeView !== 'documents' && <div className="flex-1" />}
 
       {/* Utility Tabs Section */}
       <div className="px-3 py-3 border-t border-b border-gray-200 mt-4 space-y-1">
@@ -979,8 +1141,109 @@ export default function ConstructionZone() {
               </div>
             )}
 
-            {/* Spacer for non-construction views */}
-            {activeView !== 'construction' && <div className="flex-1" />}
+            {/* Documents filter panel */}
+            {activeView === 'documents' && (() => {
+              const allTags = getAllTags();
+              const allTypes = getAllFileTypes();
+              const hasFilters = selectedTags.length > 0 || selectedFileTypes.length > 0;
+
+              return (
+                <div className="flex-1 px-3 space-y-5 overflow-y-auto no-scrollbar">
+                  {/* Active Filters Summary */}
+                  {hasFilters && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        {selectedTags.length + selectedFileTypes.length} filter{selectedTags.length + selectedFileTypes.length !== 1 ? 's' : ''} active
+                      </span>
+                      <button
+                        onClick={clearFilters}
+                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        <XCircle size={12} />
+                        Clear
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Tags Section */}
+                  {allTags.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Tag size={12} className="text-gray-400" />
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tags</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allTags.map(({ tag, count }) => {
+                          const isSelected = selectedTags.includes(tag);
+                          const color = getTagColor(tag);
+                          return (
+                            <button
+                              key={tag}
+                              onClick={() => toggleTagFilter(tag)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                                isSelected
+                                  ? `${color.activeBg} text-white border-transparent shadow-sm`
+                                  : `${color.bg} ${color.text} ${color.border} hover:shadow-sm`
+                              }`}
+                            >
+                              {tag}
+                              <span className={`text-[9px] ${isSelected ? 'text-white/70' : 'opacity-50'}`}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File Types Section */}
+                  {allTypes.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <FileType size={12} className="text-gray-400" />
+                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">File Type</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allTypes.map(({ type, count }) => {
+                          const isSelected = selectedFileTypes.includes(type);
+                          const color = getFileTypeColor(type);
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => toggleFileTypeFilter(type)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                                isSelected
+                                  ? `${color.activeBg} text-white border-transparent shadow-sm`
+                                  : `${color.bg} ${color.text} ${color.border} hover:shadow-sm`
+                              }`}
+                            >
+                              .{type}
+                              <span className={`text-[9px] ${isSelected ? 'text-white/70' : 'opacity-50'}`}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Empty state when no documents */}
+                  {allTags.length === 0 && allTypes.length === 0 && (
+                    <div className="text-center py-8">
+                      <Tag size={24} className="text-gray-300 mx-auto mb-2" />
+                      <p className="text-xs text-gray-400">
+                        Upload documents with tags to see filters here
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Spacer for other non-construction views */}
+            {activeView !== 'construction' && activeView !== 'documents' && <div className="flex-1" />}
 
             {/* Utility Tabs Section */}
             <div className="px-3 py-3 border-t border-b border-gray-200 mt-4 space-y-1">
@@ -1100,7 +1363,10 @@ export default function ConstructionZone() {
         {/* Show Construction Zone */}
         {activeView === 'construction' && (
           <main className="flex-1 overflow-y-auto metallic-gradient py-4 pl-8 pr-8">
-            <div className="max-w-4xl">
+            {activePage === 'Locations' ? (
+              <MapsView />
+            ) : (
+              <div className="max-w-4xl">
               {/* Category Header Section */}
               <div className="mb-2">
                 <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2">
@@ -1130,6 +1396,46 @@ export default function ConstructionZone() {
                   {getPageDescription(activeTab, activePage) ||
                     `Organize the ${activePage.toLowerCase()} stream across your stages.`}
                 </p>
+              </div>
+
+              {/* Add Item - Fixed at Top */}
+              <div className="mb-6">
+                {isAddingItem ? (
+                  <form onSubmit={handleAddItem} className="flex gap-2">
+                    <input
+                      ref={newItemInputRef}
+                      type="text"
+                      placeholder={`Add a requirement or idea for ${activePage}...`}
+                      className="flex-1 bg-white border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-400 text-sm"
+                      value={newItemText}
+                      onChange={(e) => setNewItemText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') handleCancelAddItem();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCancelAddItem}
+                      className="px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Add
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    onClick={handleStartAddItem}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-500 bg-white border border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add a requirement or idea...
+                  </button>
+                )}
               </div>
 
               {/* Loading State */}
@@ -1236,28 +1542,10 @@ export default function ConstructionZone() {
                     )}
                   </section>
 
-                  <div className="mt-10 pt-6 border-t border-slate-300">
-                    <form onSubmit={handleAddItem} className="flex gap-3">
-                      <input
-                        autoFocus
-                        type="text"
-                        placeholder={`Add a requirement or idea for ${activePage}...`}
-                        className="flex-1 bg-white/50 border border-slate-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-400"
-                        value={newItemText}
-                        onChange={(e) => setNewItemText(e.target.value)}
-                      />
-                      <button
-                        type="submit"
-                        onClick={handleAddItem}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" /> Add
-                      </button>
-                    </form>
-                  </div>
                 </>
               )}
             </div>
+            )}
           </main>
         )}
 
