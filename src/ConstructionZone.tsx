@@ -32,6 +32,7 @@ import {
   Map,
   Menu,
   X,
+  TrendingUp,
 } from 'lucide-react';
 import GeminiSidebar from './components/GeminiSidebar';
 import CollapsibleSection from './components/CollapsibleSection';
@@ -44,6 +45,7 @@ import PreLaunchChecklistView from './components/PreLaunchChecklistView';
 import Auth from './components/Auth';
 import ResizableSidebar from './components/ResizableSidebar';
 import MapsView from './components/MapsView';
+import CapacityCalculator from './components/CapacityCalculator';
 import { useDocumentStore } from './documentStore';
 import { Tag, FileType, XCircle } from 'lucide-react';
 
@@ -98,7 +100,8 @@ type ActiveView =
   | 'ideaHopper'
   | 'todo'
   | 'outline'
-  | 'preLaunchChecklist';
+  | 'preLaunchChecklist'
+  | 'calculator';
 
 // Helper to render category icon using lucide-react icons keyed in CATEGORY_STRUCTURE.
 const CategoryIcon = ({
@@ -844,6 +847,7 @@ export default function ConstructionZone() {
           { id: 'preLaunchChecklist', label: 'Pre-Launch', icon: Rocket },
           { id: 'ideaHopper', label: 'Idea Hopper', icon: Lightbulb },
           { id: 'documents', label: 'Documents', icon: FolderOpen },
+          { id: 'calculator', label: 'Capacity', icon: TrendingUp },
         ].map((item) => (
           <button
             key={item.id}
@@ -1357,6 +1361,13 @@ export default function ConstructionZone() {
                 setActiveView('construction');
               }}
             />
+          </main>
+        )}
+
+        {/* Show Capacity Calculator */}
+        {activeView === 'calculator' && (
+          <main className="flex-1 overflow-hidden">
+            <CapacityCalculator />
           </main>
         )}
 
