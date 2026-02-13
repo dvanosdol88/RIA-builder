@@ -35,6 +35,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import GeminiSidebar from './components/GeminiSidebar';
+import FloatingPanel from './components/FloatingPanel';
 import CollapsibleSection from './components/CollapsibleSection';
 import CardDetailSidebar from './components/CardDetailSidebar';
 import DocumentsView from './components/DocumentsView';
@@ -182,6 +183,7 @@ export default function ConstructionZone() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [geminiOpen, setGeminiOpen] = useState(false);
+  const [geminiDocked, setGeminiDocked] = useState(true);
   const [newItemText, setNewItemText] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
@@ -1571,7 +1573,24 @@ export default function ConstructionZone() {
           </main>
         )}
 
-        {geminiOpen && <GeminiSidebar onClose={() => setGeminiOpen(false)} />}
+        {geminiOpen && (
+          <FloatingPanel
+            isDocked={geminiDocked}
+            dockedClassName="fixed right-0 top-0 h-full w-96 z-50 shadow-xl border-l border-gray-200"
+            defaultPosition={{ x: window.innerWidth - 400, y: 16 }}
+            defaultSize={{ width: 384, height: Math.min(700, window.innerHeight - 32) }}
+            minWidth={320}
+            minHeight={400}
+            maxWidth={800}
+            zIndex={50}
+          >
+            <GeminiSidebar
+              onClose={() => setGeminiOpen(false)}
+              isDocked={geminiDocked}
+              onToggleDock={() => setGeminiDocked(d => !d)}
+            />
+          </FloatingPanel>
+        )}
 
         {selectedIdeaId && (
           <CardDetailSidebar

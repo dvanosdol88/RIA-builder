@@ -17,6 +17,8 @@ import {
   Paperclip,
   Image,
   FileText,
+  PinOff,
+  Pin,
 } from 'lucide-react';
 import {
   useIdeaStore,
@@ -412,7 +414,13 @@ interface Message {
   attachments?: MessageAttachment[];
 }
 
-const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+interface GeminiSidebarProps {
+  onClose: () => void;
+  isDocked: boolean;
+  onToggleDock: () => void;
+}
+
+const GeminiSidebar: React.FC<GeminiSidebarProps> = ({ onClose, isDocked, onToggleDock }) => {
   const { ideas, addIdea, updateIdea } = useIdeaStore();
   const { documents, loadDocuments } = useDocumentStore();
 
@@ -1505,9 +1513,12 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const isDataLoading = isCanonLoading || isSettingsLoading;
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-xl w-96 fixed right-0 top-0 z-50">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+    <div className="flex flex-col h-full bg-white">
+      {/* Header — data-drag-handle lets FloatingPanel detect drag zone */}
+      <div
+        data-drag-handle
+        className={`p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center ${!isDocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      >
         <div className="flex items-center gap-2 text-indigo-700 font-bold">
           <Sparkles size={20} />
           <span>GenConsult</span>
@@ -1553,6 +1564,13 @@ const GeminiSidebar: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             title="Save & Clear Session Memory"
           >
             <Save size={18} />
+          </button>
+          <button
+            onClick={onToggleDock}
+            className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors"
+            title={isDocked ? 'Undock panel' : 'Dock panel'}
+          >
+            {isDocked ? <PinOff size={18} /> : <Pin size={18} />}
           </button>
           <button
             onClick={onClose}
