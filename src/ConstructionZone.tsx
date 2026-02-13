@@ -1306,6 +1306,17 @@ export default function ConstructionZone() {
                 <FolderOpen size={16} />
                 Documents
               </button>
+              <button
+                onClick={() => setActiveView('calculator')}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  activeView === 'calculator'
+                    ? 'bg-white shadow-sm text-blue-700 border border-gray-200'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <TrendingUp size={16} />
+                Capacity
+              </button>
             </div>
 
             {/* Build Stats */}
